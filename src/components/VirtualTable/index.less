@@ -1,0 +1,106 @@
+/*
+ * @Author: Yang yongjian
+ * @Date: 2021-07-06 10:16:33
+ * @LastEditors: Yang yongjian
+ * @LastEditTime: 2026-01-23 11:11:06
+ * @Description: file content
+ * @FilePath: /virtual-table/src/components/VirtualTable/index.less
+ */
+.virtual-table .virtual-table-container:before,
+.virtual-table .virtual-table-container:after {
+    display: none;
+}
+
+.virtual-table {
+    --virtual-table-scrollbar-width: 0px !important;
+
+
+    /* 全局样式或组件样式中添加 */
+    .virtual-table {
+        --virtual-table-scrollbar-width: 0px !important;
+        /* 覆盖virtuald内置的滚动条宽度变量 */
+    }
+
+    table {
+        table-layout: fixed !important;
+        width: 100% !important;
+        border-spacing: 0;
+    }
+
+    .virtual-table-header {
+        th.virtual-table-cell {
+            background: #fafafa;
+            border-bottom: 1px solid #e8e8e8;
+            font-weight: 500;
+            padding: 10px 16px;
+            border-right: 1px solid #e8e8e8;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            overflow: hidden;
+        }
+    }
+
+    .virtual-table-thead>tr:first-child>th {
+        border-top: 1px solid #e8e8e8;
+    }
+
+    .virtual-table-thead>tr>th:first-child {
+        border-left: 1px solid #e8e8e8;
+    }
+
+    .virtual-table-thead>tr:not(:last-child)>th[colspan] {
+        border-bottom: 1px solid #e8e8e8;
+    }
+}
+
+.virtual-table-cell {
+    box-sizing: border-box;
+    padding: 10px 16px;
+    line-height: 1.5;
+    border-bottom: 1px solid #e8e8e8;
+    background: #fff;
+}
+
+[data-theme="dark"] .virtual-table-cell {
+    box-sizing: border-box;
+    line-height: 1.5;
+    padding: 10px 16px;
+    border-bottom: 1px solid #303030;
+    background: #141414;
+}
+
+[data-theme="dark"] .virtual-table {
+    .virtual-table-header {
+        th.virtual-table-cell {
+            background: #1d1d1d;
+            border-bottom: 1px solid #303030;
+            border-right: 1px solid #303030;
+        }
+    }
+
+    .virtual-table-thead>tr:not(:last-child)>th[colspan] {
+        border-bottom: 1px solid #303030;
+    }
+}
+
+.expand-icon {
+    cursor: pointer;
+    color: var(--primary-color);
+    margin-right: 4px;
+    line-height: 0;
+}
+
+// .virtual-table .virtual-table-header {
+//     overflow: visible !important;
+// }
+
+.hide-scrollbar {
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+
+    /* Firefox */
+    &::-webkit-scrollbar {
+        display: none;
+    }
+}

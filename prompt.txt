@@ -1,0 +1,31 @@
+# 项目交互提示词记录
+
+以下是本项目开发过程中执行的所有主要任务和用户指令：
+
+1. **移除 lodash 依赖**
+   - 任务：移除项目中的 lodash 依赖，并实现一个轻量级的 cloneDeep 函数来替代 lodash/cloneDeep，以减小包体积。
+
+2. **图标组件抽取**
+   - 指令：UpCircleOutlined, DownCircleOutlined把这两个文件从库里抽取出来，放到独立文件里引用，避免引入所有库文件
+
+3. **修复无限渲染循环**
+   - 问题描述：react-dom.development.js:86 Warning: Maximum update depth exceeded...
+   - 任务：修复 VirtualTable 组件中由于列宽计算导致的 useEffect 依赖死循环。
+
+4. **增加测试数据量**
+   - 指令：将测试数据量增加到1000条
+
+5. **增加多级行维度**
+   - 指令：测试数据中添加三级四级行维度，总体分类需要达到1000个以上
+
+6. **添加文档**
+   - 指令：添加README.md文件，包含项目描述和组件使用说明
+
+7. **升级依赖**
+   - 指令：将react-window升级到最新版本
+
+8. **添加单元格点击交互**
+   - 指令：PivotParams.meta属性中添加clickHandler，类型为函数，参数是当前单元格的行数据data，如果该属性有值，单元格渲染时使用a标签包裹内容，并在单元格点击时调用该函数
+
+9. **总结提示词**
+   - 指令：总结项目所有提示词，写入prompt.txt文件中
