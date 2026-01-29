@@ -1,6 +1,6 @@
 {
   "name": "@yester/virtual-table",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "main": "./dist/virtual-table.umd.js",
   "module": "./dist/virtual-table.es.js",
