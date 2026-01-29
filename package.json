@@ -1,5 +1,5 @@
 {
-  "name": "virtual-table",
+  "name": "@yester/virtual-table",
   "version": "1.0.0",
   "type": "module",
   "main": "./dist/virtual-table.umd.js",
@@ -20,7 +20,11 @@
     "build": "tsc && vite build",
     "type-check": "tsc --noEmit",
     "preview": "vite preview",
-    "test": "vitest"
+    "test": "vitest",
+    "release": "pnpm test run && pnpm build && npm publish"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "classnames": "^2.3.2",

@@ -158,6 +158,9 @@ pnpm build
 
 # Run tests
 pnpm test
+
+# Release (Test -> Build -> Publish)
+pnpm release
 ```
 
 ## License
