@@ -2,7 +2,7 @@
  * @Author: Yang yongjian
  * @Date: 2021-07-06 10:16:33
  * @LastEditors: Yang yongjian
- * @LastEditTime: 2026-01-23 11:11:06
+ * @LastEditTime: 2026-01-29 17:32:31
  * @Description: file content
  * @FilePath: /virtual-table/src/components/VirtualTable/index.less
  */
@@ -90,6 +90,16 @@
     line-height: 0;
 }
 
+.virtual-table-cell-link {
+    cursor: pointer;
+    text-decoration: none;
+    color: var(--primary-color);
+
+    &:hover {
+        color: var(--primary-color-hover);
+    }
+}
+
 // .virtual-table .virtual-table-header {
 //     overflow: visible !important;
 // }
@@ -104,3 +114,4 @@
         display: none;
     }
 }
+

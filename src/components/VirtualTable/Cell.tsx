@@ -82,8 +82,14 @@ const Cell: React.FC<CellProps> = ({ columnIndex, rowIndex, style, mergedData, c
     const column = columns[columnIndex]; 
     
     // Find meta config for this column
-    const metaItem = meta?.find(m => m.field === column.field);
-
+    // The column.field in pivot table might be like "key1|key2||metric"
+    // We need to match against the last part (the metric field) if it's a composite key,
+    // or exact match if it's a simple key.
+    const fieldParts = column.field.split('||');
+    const realField = fieldParts[fieldParts.length - 1];
+    
+    const metaItem = meta?.find(m => m.field === realField || m.field === column.field);
+        
     // 检查内容是否为React元素
     const isReactElement = React.isValidElement(cell.content);
 
@@ -94,6 +100,14 @@ const Cell: React.FC<CellProps> = ({ columnIndex, rowIndex, style, mergedData, c
         cellContent = cell.content as React.ReactNode;
     } else {
         cellContent = cell.content;
+    }
+
+    // Apply formatter if exists
+    // formatter exists on MetricNode, but column is CustomTreeNode (Union)
+    // We should check if formatter exists
+    if ('formatter' in column && column.formatter && !isReactElement) {
+        // Pass original content and record/data
+        cellContent = column.formatter(cellContent, cell.data);
     }
 
     // Apply clickHandler if exists in meta
@@ -112,7 +126,7 @@ const Cell: React.FC<CellProps> = ({ columnIndex, rowIndex, style, mergedData, c
                     e.stopPropagation();
                     metaItem.clickHandler!(rowData);
                 }}
-                style={{ cursor: 'pointer', textDecoration: 'underline', color: '#1890ff' }}
+                className="virtual-table-cell-link"
             >
                 {cellContent}
             </a>

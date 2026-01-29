@@ -15,6 +15,7 @@ const generateData = (count: number) => {
     const districts = ['District A', 'District B', 'District C', 'District D', 'District E'];
     const streets = ['Street 1', 'Street 2', 'Street 3', 'Street 4', 'Street 5', 'Street 6', 'Street 7', 'Street 8'];
     const types = ['Furniture', 'Electronics', 'Clothing', 'Food', 'Books', 'Toys', 'Tools', 'Beauty'];
+    const years = ['2023', '2024'];
 
     return Array.from({ length: count }).map((_, index) => {
         const province = provinces[Math.floor(Math.random() * provinces.length)];
@@ -23,6 +24,7 @@ const generateData = (count: number) => {
         const district = districts[Math.floor(Math.random() * districts.length)];
         const street = streets[Math.floor(Math.random() * streets.length)];
         const type = types[Math.floor(Math.random() * types.length)];
+        const year = years[Math.floor(Math.random() * years.length)];
         
         return {
             id: index,
@@ -31,6 +33,7 @@ const generateData = (count: number) => {
             district,
             street,
             type,
+            year,
             price: Math.floor(Math.random() * 5000) + 100,
             amount: Math.floor(Math.random() * 100) + 1
         };
@@ -57,12 +60,35 @@ const App = () => {
             { field: 'district', title: 'District', width: 120 },
             { field: 'street', title: 'Street', width: 150 }
         ];
+        
+        // Use Type and a custom Year field (simulated) or just Type for now. 
+        // To test multi-level columns, let's pretend 'city' is a column dimension for a moment, 
+        // but 'city' is already in rows.
+        // Let's add a 'year' field to data generation or just use 'province' as column to see cross-tab.
+        // But province is in rows.
+        // Let's create a new field 'category' in data generation.
+        
         const columns = [
+             { field: 'year', title: 'Year', width: 100 },
              { field: 'type', title: 'Type', width: 120 }
         ];
         const values = [
             { field: 'amount', title: 'Amount', calculateType: 'sum', width: 100 },
-            { field: 'price', title: 'Price', calculateType: 'sum', width: 100 }
+            { 
+                field: 'price', 
+                title: 'Price', 
+                calculateType: 'sum', 
+                width: 100,
+                formatter: (val: any) => `¥${val}`
+            },
+            { 
+                field: 'expr_test', 
+                title: 'Amt * Price', 
+                calculateType: 'expr', 
+                expression: '{amount} * {price}', 
+                width: 120,
+                hidden: true // Hidden test
+            }
         ];
 
         if (mode === 'detail') {

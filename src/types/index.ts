@@ -1,6 +1,6 @@
 import React from 'react';
 
-export interface CustomTreeNode {
+export interface BaseNode {
     /**
      * 字段唯一标识
      */
@@ -10,39 +10,48 @@ export interface CustomTreeNode {
      */
     title?: string;
     /**
+     * 字段描述
+     */
+    description?: string;
+    width?: number | string;
+    style?: React.CSSProperties;
+    fixed?: boolean | string;
+    colSpan?: number;
+    dataIndex?: string;
+    hidden?: boolean;
+    key?: string;
+    children?: BaseNode[];
+}
+
+export interface DimensionNode extends BaseNode {
+    /**
      * 是否收起（默认都展开）
      * @description 优先级 `collapseFields` > `expandDepth` > `collapseAll` > `collapsed`
      */
     collapsed?: boolean;
-    /**
-     * 字段描述
-     */
-    description?: string;
-    /**
-     * 子节点
-     */
-    children?: CustomTreeNode[];
-    
-    // Additional properties inferred from usage
-    width?: number | string;
     total?: {
         enabled: boolean;
         label?: string;
         position?: 'top' | 'bottom';
     };
-    emptyReplace?: string;
-    calculateType?: 'sum' | 'avg' | 'count' | 'min' | 'max' | 'd_count' | 'variance' | 'stddev';
     sort?: {
         enabled: boolean;
         type: 'asc' | 'desc';
     };
-    style?: React.CSSProperties;
-    fixed?: boolean | string;
-    colSpan?: number;
-    dataIndex?: string;
-    render?: (val: any, record: any, index: number) => React.ReactNode;
-    type?: string; // e.g. 'group'
+    children?: DimensionNode[];
 }
+
+export interface MetricNode extends BaseNode {
+    emptyReplace?: string;
+    calculateType?: 'sum' | 'avg' | 'count' | 'min' | 'max' | 'd_count' | 'variance' | 'stddev' | 'expr';
+    expression?: string;
+    render?: (val: any, record: any, index: number) => React.ReactNode;
+    formatter?: (val: any, record: any) => React.ReactNode;
+    type?: string; // e.g. 'group'
+    children?: MetricNode[];
+}
+
+export type CustomTreeNode = DimensionNode | MetricNode;
 
 export interface DataCell {
     content: string | number | null | undefined;
@@ -75,9 +84,9 @@ export interface SortParam {
 }
 
 export interface PivotFields {
-    rows: CustomTreeNode[];
-    columns: CustomTreeNode[];
-    values: CustomTreeNode[];
+    rows: DimensionNode[];
+    columns: DimensionNode[];
+    values: MetricNode[];
 }
 
 export interface PivotParams {

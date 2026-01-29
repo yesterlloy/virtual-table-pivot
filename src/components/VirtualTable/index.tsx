@@ -25,6 +25,7 @@ interface VirtualTableProps extends PivotParams {
 
 export default memo((props: VirtualTableProps) => {
     const { scroll, data, meta, sortParams, fields } = props;
+    console.log('VirtualTable init props==', props)
     const [tableWidth, setTableWidth] = useState(0);
     //当前占用的宽度总和
     // const [usedWidth, setUsedWidth] = useState(0); // Removing this state to avoid loop
@@ -85,7 +86,8 @@ export default memo((props: VirtualTableProps) => {
 
         const countColumns = (list: CustomTreeNode[]) => {
             list.forEach(col => {
-                if (col.type !== "group") {
+                // 检查是否是分组节点
+                if (!('type' in col) || col.type !== "group") {
                     totalWidth += getIntWidth(col.width);
                     totalCount += 1;
                 }
@@ -145,7 +147,7 @@ export default memo((props: VirtualTableProps) => {
         let totalWidth = 0;
         const countColumns = (list: CustomTreeNode[]) => {
             list.forEach(col => {
-                if (col.type !== "group") {
+                if (!('type' in col) || col.type !== "group") {
                     totalWidth += getIntWidth(col.width);
                 }
                 if (col?.children && col.children.length > 0) {

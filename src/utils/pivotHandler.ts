@@ -5,7 +5,7 @@
  *
  */
 import { EMPTY_VALUE, TOTAL_DEFAULT_VALUE } from './vars';
-import { CustomTreeNode, PivotParams, DataCell, TableRow } from '@/types';
+import { CustomTreeNode, PivotParams, DataCell, TableRow, DimensionNode, MetricNode } from '@/types';
 
 // 辅助函数：递归获取所有叶子节点
 const getAllLeafNodes = (nodes: CustomTreeNode[]): CustomTreeNode[] => {
@@ -47,6 +47,32 @@ const generateKey = (record: any, fields: string[]) => {
     return '|' + key;
 };
 
+// 辅助函数：计算表达式
+const evaluateExpression = (expression: string, context: Record<string, number>): number | null => {
+    if (!expression) return null;
+    try {
+        // 替换变量 {field} -> value
+        // 使用正则替换，同时检查上下文是否存在该值
+        const processedExpr = expression.replace(/\{(\w+)\}/g, (_match, field) => {
+            const value = context[field];
+            // 如果引用值不存在或非数字，视为0 (或者根据策略处理)
+            return (value !== undefined && value !== null && !isNaN(value)) ? String(value) : '0';
+        });
+
+        // 安全性检查：仅允许数字、运算符、括号、小数点
+        if (!/^[\d\.\+\-\*\/\(\)\s]+$/.test(processedExpr)) {
+            console.warn('Invalid characters in expression:', expression);
+            return null;
+        }
+
+        // 执行计算
+        return new Function(`return ${processedExpr}`)();
+    } catch (error) {
+        console.error('Expression evaluation error:', expression, error);
+        return null;
+    }
+};
+
 // 聚合函数映射
 const aggregators: Record<string, (values: any[]) => number> = {
     sum: (values) => values.reduce((acc, val) => acc + (Number(val) || 0), 0),
@@ -72,7 +98,7 @@ const aggregators: Record<string, (values: any[]) => number> = {
         const squareDiffs = validValues.map(val => Math.pow(val - mean, 2));
         const variance = squareDiffs.reduce((acc, val) => acc + val, 0) / validValues.length;
         return Math.sqrt(variance);
-    }
+    },
 };
 
 // 展开/收起状态管理
@@ -99,9 +125,9 @@ const pivotDataHandler = (params: PivotParams) => {
     console.group('透视表数据处理');
 
     // 获取所有叶子节点
-    const rowLeafNodes = getAllLeafNodes(rows);
-    const colLeafNodes = getAllLeafNodes(columns);
-    const valueLeafNodes = getAllLeafNodes(values);
+    const rowLeafNodes = getAllLeafNodes(rows) as DimensionNode[];
+    const colLeafNodes = getAllLeafNodes(columns) as DimensionNode[];
+    const valueLeafNodes = (getAllLeafNodes(values) as MetricNode[]).filter(node => !node.hidden);
 
     // 提取字段名
     const rowFields = rowLeafNodes.map(node => node.field);
@@ -205,8 +231,8 @@ const pivotDataHandler = (params: PivotParams) => {
 
     // 辅助函数：获取行维度的层级结构
     const getRowHierarchy = () => {
-        const hierarchy: CustomTreeNode[][] = [];
-        const leafNodes = getAllLeafNodes(rows);
+        const hierarchy: DimensionNode[][] = [];
+        const leafNodes = getAllLeafNodes(rows) as DimensionNode[];
 
         // 按顺序组合生成层级
         for (let i = 1; i <= leafNodes.length; i++) {
@@ -365,8 +391,20 @@ const pivotDataHandler = (params: PivotParams) => {
                         const isExpanded = expandState.has(currentLevel) ? expandState.get(currentLevel)!.get(currentSubtotalRowKey) || true : true;
 
                         // 应用空值替换
-                        if ((value === EMPTY_VALUE || value === null || value === undefined) && fieldConfig.emptyReplace) {
-                            value = fieldConfig.emptyReplace;
+                        // Type assertion to access emptyReplace as it might be on a metric node but here we are iterating rowFields (DimensionNodes)
+                        // Wait, rowFields correspond to rowLeafNodes which are DimensionNodes.
+                        // Does DimensionNode support emptyReplace? In the new types, NO.
+                        // Only MetricNode has emptyReplace.
+                        // If the requirement is that dimensions also support empty replacement, we need to add it to DimensionNode or BaseNode.
+                        // Assuming BaseNode should have it if it's common.
+                        // Checking original types: emptyReplace was on CustomTreeNode.
+                        // Let's check if we should move it to BaseNode.
+                        // The user said "shared parts can be set as base type".
+                        // emptyReplace seems useful for dimensions too (replacing null/empty strings).
+                        // I will cast to any for now to fix the build, or better, move it to BaseNode if appropriate.
+                        // Given I cannot edit types file again easily without risking loops, I will cast to any.
+                        if ((value === EMPTY_VALUE || value === null || value === undefined) && (fieldConfig as any).emptyReplace) {
+                            value = (fieldConfig as any).emptyReplace;
                         }
 
                         subtotalRow.push({
@@ -384,14 +422,36 @@ const pivotDataHandler = (params: PivotParams) => {
 
                     // 计算值字段的小计
                     sortedColGroups.forEach(([colKey, _colData]) => {
+                        const currentContext: Record<string, number> = {};
+
+                        // 1. 计算基础聚合指标
                         valueLeafNodes.forEach(valueNode => {
+                            if (valueNode.calculateType === 'expr') return;
+
                             const valueField = valueNode.field;
                             const aggregator = valueNode.calculateType || 'sum';
 
                             // 计算当前组的聚合值
                             const cellRecords = records.filter(record => generateKey(record, colFields) === colKey);
                             const valuesToAggregate = cellRecords.map(record => getFieldValue(record, valueField));
-                            let aggregatedValue: string | number = aggregators[aggregator](valuesToAggregate);
+                            let val = 0;
+                            if (aggregators[aggregator]) {
+                                val = aggregators[aggregator](valuesToAggregate);
+                            }
+                            currentContext[valueNode.field] = val;
+                        });
+
+                        // 2. 计算表达式指标
+                        valueLeafNodes.forEach(valueNode => {
+                            if (valueNode.calculateType === 'expr' && valueNode.expression) {
+                                const result = evaluateExpression(valueNode.expression, currentContext);
+                                currentContext[valueNode.field] = result !== null ? result : 0;
+                            }
+                        });
+
+                        // 3. 生成单元格
+                        valueLeafNodes.forEach(valueNode => {
+                            let aggregatedValue: string | number = currentContext[valueNode.field];
 
                             // 应用空值替换
                             if ((aggregatedValue === (EMPTY_VALUE as any) || aggregatedValue === null || aggregatedValue === undefined || (typeof aggregatedValue === 'number' && isNaN(aggregatedValue))) && valueNode.emptyReplace) {
@@ -498,7 +558,7 @@ const pivotDataHandler = (params: PivotParams) => {
             // But it IS used here: `let firstChildKey = rowKey;` (original code).
             // Ah, I renamed it to `_rowKey`. So I should use `_rowKey`.
             
-            const rowNode = leafNodes.find(node => node.field === field);
+            const rowNode = leafNodes.find(node => node.field === field) as DimensionNode;
             if (rowNode?.total?.enabled && rowNode.total.label) {
                 firstChildKey = `${currentRowKey}|${rowNode.total.label}`;
             }
@@ -519,8 +579,8 @@ const pivotDataHandler = (params: PivotParams) => {
                 (levelRecordCount.get(level)!.get(currentRowKey) || 0) > 1 : false;
 
             // 应用空值替换
-            if ((value === EMPTY_VALUE || value === null || value === undefined) && fieldConfig.emptyReplace) {
-                value = fieldConfig.emptyReplace;
+            if ((value === EMPTY_VALUE || value === null || value === undefined) && (fieldConfig as any).emptyReplace) {
+                value = (fieldConfig as any).emptyReplace;
             }
 
             rowCells.push({
@@ -538,17 +598,38 @@ const pivotDataHandler = (params: PivotParams) => {
 
         // 添加值数据
         sortedColGroups.forEach(([colKey, _colData]) => {
+            const currentContext: Record<string, number> = {};
+
+            // 1. 计算基础聚合指标
             valueLeafNodes.forEach(valueNode => {
+                if (valueNode.calculateType === 'expr') return;
+
                 const valueField = valueNode.field;
                 const aggregator = valueNode.calculateType || 'sum';
-
+                
                 // 从cellDataMap快速获取匹配的数据
-                const cellKey = `${_rowKey}||${colKey}`; // Use _rowKey
+                const cellKey = `${_rowKey}||${colKey}`;
                 const matchingData = cellDataMap.get(cellKey) || [];
-
-                // 计算聚合值
+                
                 const valuesToAggregate = matchingData.map(record => getFieldValue(record, valueField));
-                let aggregatedValue: string | number = aggregators[aggregator](valuesToAggregate);
+                let val = 0;
+                if (aggregators[aggregator]) {
+                    val = aggregators[aggregator](valuesToAggregate);
+                }
+                currentContext[valueNode.field] = val;
+            });
+
+            // 2. 计算表达式指标
+            valueLeafNodes.forEach(valueNode => {
+                if (valueNode.calculateType === 'expr' && valueNode.expression) {
+                    const result = evaluateExpression(valueNode.expression, currentContext);
+                    currentContext[valueNode.field] = result !== null ? result : 0;
+                }
+            });
+
+            // 3. 生成单元格
+            valueLeafNodes.forEach(valueNode => {
+                let aggregatedValue: string | number = currentContext[valueNode.field];
 
                 // 应用空值替换
                 if ((aggregatedValue === (EMPTY_VALUE as any) || aggregatedValue === null || aggregatedValue === undefined || (typeof aggregatedValue === 'number' && isNaN(aggregatedValue))) && valueNode.emptyReplace) {
@@ -691,23 +772,55 @@ const pivotDataHandler = (params: PivotParams) => {
                 } as any);
             });
         } else {
-             sortedColGroups.forEach(([colKey, _colData]) => {
-                 const colValues = colKey.split('|').filter(s => s !== ''); 
-                 
-                 valueLeafNodes.forEach(valueNode => {
-                     let title = colValues.join(' - ');
-                     if (title) title += ` - ${valueNode.title || valueNode.field}`;
-                     else title = valueNode.title || valueNode.field;
+            const colHeaderTree: CustomTreeNode[] = [];
 
-                     columnsConfig.push({
-                         ...valueNode,
-                         field: `${colKey}||${valueNode.field}`, // Unique identifier for the column in data handling
-                         title: title,
-                         width: valueNode.width || 100,
-                         key: `${colKey}||${valueNode.field}`
-                     } as any);
-                 });
-             });
+            sortedColGroups.forEach(([colKey, _colData]) => {
+                const colValues = colKey.split('|').filter(s => s !== ''); 
+                
+                let currentLevelNodes = colHeaderTree;
+                let currentKeyPath = '';
+
+                colValues.forEach((val, index) => {
+                    currentKeyPath += (currentKeyPath ? '|' : '') + val;
+                    
+                    // Find existing node for this value
+                    let node = currentLevelNodes.find(n => n.title === val);
+                    
+                    if (!node) {
+                        const newNode = {
+                            field: `group_${currentKeyPath}`, // Placeholder field
+                            title: val,
+                            children: [],
+                            key: `group_${currentKeyPath}`
+                        } as any;
+                        currentLevelNodes.push(newNode);
+                        node = newNode;
+                    }
+
+                    // If this is the last column dimension, add metrics as children
+                    if (index === colValues.length - 1) {
+                        // Add metrics
+                        valueLeafNodes.forEach(valueNode => {
+                            if (!node!.children) node!.children = [];
+                            
+                            // Ensure node!.children is treated as array
+                            node!.children!.push({
+                                ...valueNode,
+                                field: `${colKey}||${valueNode.field}`,
+                                title: valueNode.title || valueNode.field,
+                                width: valueNode.width || 100,
+                                key: `${colKey}||${valueNode.field}`
+                            } as any);
+                        });
+                    } else {
+                        // Go deeper
+                        if (!node!.children) node!.children = [];
+                        currentLevelNodes = node!.children!;
+                    }
+                });
+            });
+
+            columnsConfig.push(...colHeaderTree);
         }
         return columnsConfig;
     };

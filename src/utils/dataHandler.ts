@@ -17,20 +17,27 @@ export const dataHandler = (params: PivotParams) => {
 
     // a: Detail Table (rows and columns are empty)
     if (rows.length === 0 && columns.length === 0) {
+        // Filter out hidden values
+        const visibleValues = values.filter(v => !v.hidden);
+
         // Use 'values' as the columns to display
-        const tableColumns = values.map(v => ({
+        const tableColumns = visibleValues.map(v => ({
              ...v,
              width: v.width || 100,
              key: v.field
         }));
 
         const bodyRows: TableRow[] = data.map((record, index) => {
-            const cells: DataCell[] = values.map(v => ({
-                content: record[v.field] ?? EMPTY_VALUE,
-                rowspan: 1,
-                colspan: 1,
-                style: v.style
-            }));
+            const cells: DataCell[] = visibleValues.map(v => {
+                let content = record[v.field] ?? EMPTY_VALUE;
+                return {
+                    content: content,
+                    rowspan: 1,
+                    colspan: 1,
+                    style: v.style,
+                    data: record // Pass original record for detail view cells
+                };
+            });
             return { cells, rowKey: index.toString() };
         });
         

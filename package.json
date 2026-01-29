@@ -10,7 +10,8 @@
       "import": "./dist/virtual-table.es.js",
       "require": "./dist/virtual-table.umd.js",
       "types": "./dist/index.d.ts"
-    }
+    },
+    "./dist/style.css": "./dist/style.css"
   },
   "files": [
     "dist"
@@ -21,6 +22,8 @@
     "type-check": "tsc --noEmit",
     "preview": "vite preview",
     "test": "vitest",
+    "copy": "cp -r dist ../../mid-platform-smartreport-fe/node_modules/@yester/virtual-table/",
+    "postbuild": "pnpm copy",
     "release": "pnpm test run && pnpm build && npm publish"
   },
   "publishConfig": {
