@@ -77,6 +77,7 @@ export interface MetaItem {
     title?: string;
     description?: string;
     clickHandler?: (data: any) => void;
+    style?: React.CSSProperties;
 }
 
 export interface SortParam {

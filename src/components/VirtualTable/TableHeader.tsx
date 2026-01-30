@@ -2,12 +2,13 @@ import React, { useMemo, forwardRef } from 'react';
 import classNames from 'classnames';
 // @ts-ignore
 import "./index.less";
-import { CustomTreeNode } from "@/types";
+import { CustomTreeNode, MetaItem } from "@/types";
 
 interface TableHeaderProps {
     columns: CustomTreeNode[];
     width: number;
     onScroll: (e: React.UIEvent<HTMLDivElement>) => void;
+    meta?: MetaItem[];
 }
 
 interface HeaderCell {
@@ -20,7 +21,7 @@ interface HeaderCell {
     rowSpan: number;
 }
 
-const TableHeader = forwardRef<HTMLDivElement, TableHeaderProps>(({ columns, width, onScroll }, ref) => {
+const TableHeader = forwardRef<HTMLDivElement, TableHeaderProps>(({ columns, width, onScroll, meta }, ref) => {
     // 处理表头分组和合并
     const headerRows = useMemo(() => {
         const rows: HeaderCell[][] = [];
@@ -44,12 +45,49 @@ const TableHeader = forwardRef<HTMLDivElement, TableHeaderProps>(({ columns, wid
             if (!rows[depth]) rows[depth] = [];
 
             cols.forEach(col => {
+                // Determine align using logic similar to Cell.tsx
+                let align: 'left' | 'right' | 'center' = 'left';
+                if (col.style?.textAlign) {
+                    align = col.style.textAlign as any;
+                }
+
+                // Check meta for override
+                let metaItem = meta?.find(m => m.field === col.field);
+                
+                // If not found, try to check if it's a composite field (pivot table value column)
+                // Composite field format: colKey||metricField
+                // But wait, column dimension values are also nodes in the tree.
+                // Column dimension nodes have field like "group_KeyPath" or just the value itself if it's a value node?
+                // In pivotHandler:
+                // Column Header Nodes:
+                // - Dimension values: field = "group_KeyPath" (e.g. group_|2023|Furniture), title = "Furniture"
+                // - Metric nodes (leaves): field = "colKey||metricField", title = metricTitle
+                
+                if (!metaItem) {
+                    const fieldParts = col.field.split('||');
+                    if (fieldParts.length > 1) {
+                        // It's likely a metric node in pivot table
+                        const realField = fieldParts[fieldParts.length - 1];
+                        metaItem = meta?.find(m => m.field === realField);
+                    } else if (col.field.includes('__')) {
+                        // Column dimension value node logic
+                        // New format: dimensionField_value
+                        
+                        // Try to find if any meta field is a prefix of col.field followed by '_'
+                        metaItem = meta?.find(m => col.field.startsWith(`${m.field}_`));
+                    }
+                }
+                
+                if (metaItem?.style?.textAlign) {
+                    align = metaItem.style.textAlign as any;
+                }
+
                 const cell: HeaderCell = {
                     key: col.field || col.dataIndex || (col.title as string) || String(Math.random()),
                     title: col.title,
                     width: col.width,
-                    align: (col.style?.textAlign as any) || 'center',
-                    className: undefined, // col.className not in type, ignore
+                    align: align,
+                    className: col.field, // col.className not in type, ignore
                     colSpan: 1,
                     rowSpan: 1
                 };
@@ -75,7 +113,13 @@ const TableHeader = forwardRef<HTMLDivElement, TableHeaderProps>(({ columns, wid
 
         generateRows(columns, 0);
         return rows;
-    }, [columns]);
+    }, [columns, meta]);
+
+    console.group('virtualTable header');
+    console.log('virtualTable meta', meta);
+    console.log('virtualTable columns', columns);
+    console.log('virtualTable header', headerRows);
+    console.groupEnd();
 
     return (
         <div

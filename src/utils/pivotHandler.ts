@@ -128,6 +128,7 @@ const pivotDataHandler = (params: PivotParams) => {
     const rowLeafNodes = getAllLeafNodes(rows) as DimensionNode[];
     const colLeafNodes = getAllLeafNodes(columns) as DimensionNode[];
     const valueLeafNodes = (getAllLeafNodes(values) as MetricNode[]).filter(node => !node.hidden);
+    console.log('透视表值字段', valueLeafNodes);
 
     // 提取字段名
     const rowFields = rowLeafNodes.map(node => node.field);
@@ -766,7 +767,19 @@ const pivotDataHandler = (params: PivotParams) => {
         const visibleRows = list.filter(row => isRowVisible(row.rowKey));
         
         // Deep copy cells to avoid mutation issues (or map to new structure)
-        const visibleCells = visibleRows.map(row => row.cells.map(cell => ({...cell})));
+        const visibleCells = visibleRows.map(row => row.cells.map(cell => {
+            const newCell = { ...cell };
+            // Update expanded state based on current expandState
+            if (newCell.expandable && newCell.level && newCell.rowKey) {
+                 if (expandState.has(newCell.level)) {
+                     const levelState = expandState.get(newCell.level)!;
+                     if (levelState.has(newCell.rowKey)) {
+                         newCell.expanded = levelState.get(newCell.rowKey)!;
+                     }
+                 }
+            }
+            return newCell;
+        }));
 
         // 5. 应用行合并逻辑 (mutates visibleCells)
         rowSpanHandler(visibleCells);
@@ -825,6 +838,7 @@ const pivotDataHandler = (params: PivotParams) => {
             });
         } else {
             const colHeaderTree: CustomTreeNode[] = [];
+            console.log('透视表列字段 sortedColGroups', sortedColGroups);
 
             sortedColGroups.forEach(([colKey, _colData]) => {
                 const colValues = colKey.split('|').filter(s => s !== ''); 
@@ -839,11 +853,16 @@ const pivotDataHandler = (params: PivotParams) => {
                     let node = currentLevelNodes.find(n => n.title === val);
                     
                     if (!node) {
+                        // Use column dimension field name as prefix for better identification
+                        // colLeafNodes[index] corresponds to the dimension config for this level
+                        const dimField = colLeafNodes[index]?.field || 'unknown';
+                        const nodeField = `${dimField}__${val}`; // Format: dimensionField_value
+
                         const newNode = {
-                            field: `group_${currentKeyPath}`, // Placeholder field
+                            field: nodeField, 
                             title: val,
                             children: [],
-                            key: `group_${currentKeyPath}`
+                            key: nodeField
                         } as any;
                         currentLevelNodes.push(newNode);
                         node = newNode;

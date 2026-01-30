@@ -23,12 +23,30 @@ const isCellCovered = (rowIndex: number, columnIndex: number, mergedData: DataCe
 };
 
 // 计算合并后的单元格样式
-const getMergedCellStyle = (rowIndex: number, columnIndex: number, style: React.CSSProperties, mergedData: DataCell[][], columns: CustomTreeNode[]) => {
+const getMergedCellStyle = (rowIndex: number, columnIndex: number, style: React.CSSProperties, mergedData: DataCell[][], columns: CustomTreeNode[], meta?: MetaItem[]) => {
     const cell = mergedData[rowIndex]?.[columnIndex];
     if (!cell || cell.rowspan === 0 || cell.colspan === 0) return undefined;
 
     const newStyle: React.CSSProperties = { ...style };
-    const column = columns[columnIndex];
+    let column = columns[columnIndex];
+
+    // Use meta logic to find the real column config if available
+    const fieldParts = column.field.split('||');
+    const realField = fieldParts[fieldParts.length - 1];
+    const metaItem = meta?.find(m => m.field === realField || m.field === column.field);
+    
+    // Prefer metaItem if it has style, otherwise use column
+    // We treat metaItem as a partial override or the source of truth for style if present
+    if (metaItem && metaItem.style) {
+        // We can't assign metaItem to column directly because types differ, but we can use it for style
+        // Or we can say "column" conceptually is the metaItem for styling purposes
+        // Let's just use metaItem.style for textAlign lookup
+        // But wait, column is CustomTreeNode, metaItem is MetaItem.
+        // Let's create a composite object or just check both
+    }
+
+    // Determine textAlign source
+    const alignStyleSource = (metaItem?.style) || column?.style;
 
     // 计算合并后的宽度
     if (cell.colspan > 1) {
@@ -45,12 +63,12 @@ const getMergedCellStyle = (rowIndex: number, columnIndex: number, style: React.
     }
 
     // 处理对齐方式
-    if (column?.style?.textAlign) {
-        newStyle.textAlign = column.style.textAlign;
-        if (column.style.textAlign === 'right') {
+    if (alignStyleSource?.textAlign) {
+        newStyle.textAlign = alignStyleSource.textAlign;
+        if (alignStyleSource.textAlign === 'right') {
             newStyle.justifyContent = 'flex-end'
         }
-        if (column.style.textAlign === 'center') {
+        if (alignStyleSource.textAlign === 'center') {
             newStyle.justifyContent = 'center'
         }
     }
@@ -78,7 +96,7 @@ const Cell: React.FC<CellProps> = ({ columnIndex, rowIndex, style, mergedData, c
     }
 
     const cell = mergedData[rowIndex][columnIndex];
-    const mergedStyle = getMergedCellStyle(rowIndex, columnIndex, style, mergedData, columns);
+    const mergedStyle = getMergedCellStyle(rowIndex, columnIndex, style, mergedData, columns, meta);
     const column = columns[columnIndex]; 
     
     // Find meta config for this column
@@ -144,14 +162,12 @@ const Cell: React.FC<CellProps> = ({ columnIndex, rowIndex, style, mergedData, c
             <span className="expand-icon">
                 {cell.expandable ? (
                     cell.expanded ? (
-                        <DownCircleOutlined onClick={() => {
-                            console.log('DownCircleOutlined onClick', cell);
+                        <UpCircleOutlined onClick={() => {
                             if (cell.onClick) cell.onClick(cell);
                             handleExpand(cell);
                         }} />
                     ) : (
-                        <UpCircleOutlined onClick={() => {
-                            console.log('UpCircleOutlined onClick', cell);
+                        <DownCircleOutlined onClick={() => {
                             if (cell.onClick) cell.onClick(cell);
                             handleExpand(cell);
                         }} />

@@ -207,6 +207,7 @@ export default memo((props: VirtualTableProps) => {
                     columns={mergedColumns}
                     width={tableWidth}
                     onScroll={handleHeaderScroll}
+                    meta={meta}
                 />
                 <div className="virtual-table-body" style={{ width: '100%' }}>
                     <Renderer
