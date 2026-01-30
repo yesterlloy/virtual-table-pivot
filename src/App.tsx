@@ -45,7 +45,7 @@ const data = generateData(2000); // Increased to 2000 to ensure good coverage
 const meta: any[] = [];
 
 const App = () => {
-    const [mode, setMode] = useState<'detail' | 'group' | 'pivot' | 'hidden'>('pivot');
+    const [mode, setMode] = useState<'detail' | 'group' | 'pivot' | 'collapsed' | 'clickExpand'>('pivot');
 
     const params = useMemo((): PivotParams => {
         const base = {
@@ -60,6 +60,20 @@ const App = () => {
             { field: 'district', title: 'District', width: 120 },
             { field: 'street', title: 'Street', width: 150 }
         ];
+
+        const collapsedRows = [
+             { field: 'province', title: 'Province', width: 120, total: { enabled: true, label: 'Total' }, collapsed: true },
+             { field: 'city', title: 'City', width: 120, total: { enabled: true, label: 'Subtotal' } },
+             { field: 'district', title: 'District', width: 120 },
+             { field: 'street', title: 'Street', width: 150 }
+        ];
+
+        const clickExpandRows = [
+            { field: 'province', title: 'Province', width: 120, total: { enabled: true, label: 'Total' }, clickExpandChildren: true },
+            { field: 'city', title: 'City', width: 120, total: { enabled: true, label: 'Subtotal' } },
+            { field: 'district', title: 'District', width: 120 },
+            { field: 'street', title: 'Street', width: 150 }
+       ];
         
         // Use Type and a custom Year field (simulated) or just Type for now. 
         // To test multi-level columns, let's pretend 'city' is a column dimension for a moment, 
@@ -126,13 +140,22 @@ const App = () => {
                      values: values
                  }
              } as any;
-        } else { // hidden
+        } else if (mode === 'clickExpand') {
              return {
                  ...base,
                  fields: {
-                     rows: [],
-                     columns: [],
-                     values: []
+                     rows: clickExpandRows,
+                     columns: columns,
+                     values: values
+                 }
+             } as any;
+        } else { // collapsed
+             return {
+                 ...base,
+                 fields: {
+                     rows: collapsedRows,
+                     columns: columns,
+                     values: values
                  }
              } as any;
         }
@@ -144,7 +167,8 @@ const App = () => {
                 <button onClick={() => setMode('detail')}>Detail Table</button>
                 <button onClick={() => setMode('group')}>Group Table</button>
                 <button onClick={() => setMode('pivot')}>Pivot Table</button>
-                <button onClick={() => setMode('hidden')}>Hidden</button>
+                <button onClick={() => setMode('collapsed')}>Collapsed Pivot</button>
+                <button onClick={() => setMode('clickExpand')}>Click Expand</button>
             </div>
             <h2>Mode: {mode} (Data Count: {data.length})</h2>
             <div style={{ height: 600, border: '1px solid #ccc' }}>

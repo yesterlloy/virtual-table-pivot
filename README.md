@@ -127,22 +127,91 @@ const detailFields = {
 
 ```typescript
 interface PivotFields {
-    rows: CustomTreeNode[];    // Row dimensions
-    columns: CustomTreeNode[]; // Column dimensions
-    values: CustomTreeNode[];  // Value fields (metrics)
+    rows: DimensionNode[];    // Row dimensions
+    columns: DimensionNode[]; // Column dimensions
+    values: MetricNode[];     // Value fields (metrics)
 }
 ```
 
-### CustomTreeNode (Field Configuration)
+### Field Configuration
+
+#### DimensionNode (Rows & Columns)
 
 | Property | Type | Description |
 |----------|------|-------------|
 | `field` | `string` | Data field key |
-| `title` | `ReactNode` | Column header title |
+| `title` | `string` | Column header title |
 | `width` | `number \| string` | Column width |
-| `calculateType` | `'sum' \| 'avg' \| 'count' ...` | Aggregation type (for values) |
-| `total` | `{ enabled: boolean; label?: string }` | Subtotal configuration (for rows) |
+| `total` | `{ enabled: boolean; label?: string }` | Subtotal configuration |
+| `collapsed` | `boolean` | Whether the dimension is collapsed by default |
+| `sort` | `{ enabled: boolean; type: 'asc' \| 'desc' }` | Sort configuration |
+
+#### MetricNode (Values)
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `field` | `string` | Data field key or unique key for expression |
+| `title` | `string` | Header title |
+| `width` | `number \| string` | Column width |
+| `calculateType` | `'sum' \| 'avg' \| 'count' \| 'min' \| 'max' \| 'd_count' \| 'expr'` | Aggregation type |
+| `expression` | `string` | Expression for calculation (e.g. `'{amount} * {price}'`) |
+| `formatter` | `(val: any, record: any) => ReactNode` | Cell content formatter |
 | `emptyReplace` | `string` | Replacement for empty values |
+| `hidden` | `boolean` | Whether to hide this metric column |
+
+## Advanced Usage
+
+### Calculated Fields
+
+You can define a new metric based on other metrics using `calculateType: 'expr'` and `expression`. Variables in `{}` refer to other metric fields.
+
+```tsx
+values: [
+  { field: 'amount', title: 'Amount', calculateType: 'sum' },
+  { field: 'price', title: 'Price', calculateType: 'avg' },
+  { 
+    field: 'total_value', 
+    title: 'Total Value', 
+    calculateType: 'expr', 
+    expression: '{amount} * {price}' 
+  }
+]
+```
+
+### Cell Formatting
+
+Use `formatter` to customize cell rendering, such as adding currency symbols or returning React components.
+
+```tsx
+values: [
+  { 
+    field: 'price', 
+    title: 'Price', 
+    formatter: (val) => <span style={{ color: 'red' }}>¥{val}</span> 
+  }
+]
+```
+
+### Nested Column Headers
+
+Simply add multiple dimensions to `columns` in `PivotFields` to create nested headers.
+
+```tsx
+columns: [
+  { field: 'year', title: 'Year', width: 100 }, // Top level
+  { field: 'quarter', title: 'Quarter', width: 100 } // Sub level
+]
+```
+
+### Default Collapsed State
+
+Set `collapsed: true` on a row dimension to collapse it by default.
+
+```tsx
+rows: [
+  { field: 'province', title: 'Province', collapsed: true }
+]
+```
 
 ## Development
 

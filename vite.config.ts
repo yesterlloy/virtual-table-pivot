@@ -25,6 +25,9 @@ export default defineConfig({
       }
     }
   },
+  esbuild: {
+    drop: ['console', 'debugger'],
+  },
   build: {
     lib: {
       entry: path.resolve(__dirname, 'src/index.ts'),

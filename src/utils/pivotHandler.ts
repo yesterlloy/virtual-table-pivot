@@ -316,12 +316,60 @@ const pivotDataHandler = (params: PivotParams) => {
         if (expandState.has(level)) {
             const levelState = expandState.get(level)!;
             const currentState = levelState.get(rowKey);
-            levelState.set(rowKey, !!!currentState);
+            const newState = !currentState;
+            levelState.set(rowKey, newState);
 
             // 更新当前点击状态
             currentClickState.set('rowKey', rowKey);
             currentClickState.set('level', level);
-            currentClickState.set('expanded', !currentState);
+            currentClickState.set('expanded', newState);
+
+            // Handle clickExpandChildren behavior
+            // Check configuration for current level
+            // Note: level is 1-based index (1, 2, 3...)
+            // rowLeafNodes is 0-based array
+            const nodeIndex = level - 1;
+            if (nodeIndex >= 0 && nodeIndex < rowLeafNodes.length) {
+                const node = rowLeafNodes[nodeIndex];
+                if (node.clickExpandChildren && newState === true) {
+                    // Expand all children of this node
+                    // We need to find all child rows that start with the current rowKey
+                    const childLevel = level + 1;
+                    if (expandState.has(childLevel)) {
+                        const childLevelState = expandState.get(childLevel)!;
+                        // Iterate all keys in child level
+                        // Key format: |Level1Value|Level2Value...
+                        // Current rowKey: |Level1Value
+                        // Child key should start with rowKey + '|'
+                        const prefix = rowKey + '|';
+                        childLevelState.forEach((_val, key) => {
+                            if (key.startsWith(prefix)) {
+                                childLevelState.set(key, true);
+                                // Recursively expand if needed? 
+                                // Requirement says "expand all subsequent row dimension data for that node".
+                                // This might imply deep expansion or just next level.
+                                // "expand all" suggests deep.
+                                // Let's try to expand deeply.
+                                toggleExpandChildren(childLevel, key);
+                            }
+                        });
+                    }
+                }
+            }
+        }
+    };
+
+    const toggleExpandChildren = (level: number, parentKey: string) => {
+        const childLevel = level + 1;
+        if (expandState.has(childLevel)) {
+            const childLevelState = expandState.get(childLevel)!;
+            const prefix = parentKey + '|';
+            childLevelState.forEach((_val, key) => {
+                if (key.startsWith(prefix)) {
+                    childLevelState.set(key, true);
+                    toggleExpandChildren(childLevel, key);
+                }
+            });
         }
     };
 
@@ -503,7 +551,11 @@ const pivotDataHandler = (params: PivotParams) => {
             }
 
             // 初始化所有行维度值为展开状态
-            expandState.get(level)!.set(currentKey, true);
+            // Check collapsed property from configuration
+            // 优先级 `collapseFields` > `expandDepth` > `collapseAll` > `collapsed`
+            // Currently only checking `collapsed`
+            const isCollapsed = rowLeafNodes[idx].collapsed;
+            expandState.get(level)!.set(currentKey, !isCollapsed);
         });
     });
 

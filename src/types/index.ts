@@ -38,6 +38,7 @@ export interface DimensionNode extends BaseNode {
         enabled: boolean;
         type: 'asc' | 'desc';
     };
+    clickExpandChildren?: boolean;
     children?: DimensionNode[];
 }
 
