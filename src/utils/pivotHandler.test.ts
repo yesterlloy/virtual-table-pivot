@@ -98,12 +98,12 @@ describe('pivotDataHandler', () => {
             // Find column for 'Furniture'
             const furnitureCol = columns.find(c => c.title === 'Furniture');
             expect(furnitureCol).toBeDefined();
-            // The field should now be prefixed with dimension field name: "type_Furniture"
-            expect(furnitureCol?.field).toBe('type_Furniture');
+            // The field should now be prefixed with dimension field name: "type__Furniture"
+            expect(furnitureCol?.field).toBe('type__Furniture');
             
             const electronicsCol = columns.find(c => c.title === 'Electronics');
             expect(electronicsCol).toBeDefined();
-            expect(electronicsCol?.field).toBe('type_Electronics');
+            expect(electronicsCol?.field).toBe('type__Electronics');
         }
     });
 });

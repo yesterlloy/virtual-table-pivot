@@ -73,7 +73,7 @@ const TableHeader = forwardRef<HTMLDivElement, TableHeaderProps>(({ columns, wid
                         // Column dimension value node logic
                         // New format: dimensionField_value
                         
-                        // Try to find if any meta field is a prefix of col.field followed by '_'
+                        // Try to find if any meta field is a prefix of col.field followed by '__'
                         metaItem = meta?.find(m => col.field.startsWith(`${m.field}_`));
                     }
                 }
