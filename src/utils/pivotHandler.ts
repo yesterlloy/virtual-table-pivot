@@ -856,7 +856,7 @@ const pivotDataHandler = (params: PivotParams) => {
                         // Use column dimension field name as prefix for better identification
                         // colLeafNodes[index] corresponds to the dimension config for this level
                         const dimField = colLeafNodes[index]?.field || 'unknown';
-                        const nodeField = `${dimField}__${val}`; // Format: dimensionField_value
+                        const nodeField = `${dimField}_${val}`; // Format: dimensionField_value
 
                         const newNode = {
                             field: nodeField, 
