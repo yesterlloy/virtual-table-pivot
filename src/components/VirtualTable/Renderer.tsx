@@ -142,6 +142,23 @@ const Renderer: React.FC<RendererProps> = (props) => {
     }, [onScroll]);
 
 
+    // 计算最大行合并数
+    const maxRowSpan = useMemo(() => {
+        let max = 1;
+        if (data && data.length > 0) {
+            data.forEach(row => {
+                if (row.cells) {
+                    row.cells.forEach(cell => {
+                        if (cell.rowspan > max) {
+                            max = cell.rowspan;
+                        }
+                    });
+                }
+            });
+        }
+        return max;
+    }, [data]);
+
     // 计算表格高度
     const tableHeight = (typeof scroll?.y === 'number' ? scroll.y : parseInt(scroll?.y as string || '400')) || 400;
 
@@ -154,8 +171,9 @@ const Renderer: React.FC<RendererProps> = (props) => {
             rowHeight={getRowHeight} // Use simplified height
             style={{ height: tableHeight - 40, width: tableWidth, overflowY: 'auto' }}
             onScroll={handleScroll}
-            className="virtual-grid"
-            overscanCount={20}
+            className={`virtual-grid row-${maxRowSpan}`}
+            overscanCount={maxRowSpan + 3}
+            
             cellComponent={Cell as any}
             cellProps={{
                 mergedData,
