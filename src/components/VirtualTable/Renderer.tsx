@@ -152,7 +152,7 @@ const Renderer: React.FC<RendererProps> = (props) => {
             columnWidth={getColumnWidth}
             rowCount={rowCount}
             rowHeight={getRowHeight} // Use simplified height
-            style={{ height: tableHeight - 40, width: tableWidth }}
+            style={{ height: tableHeight - 40, width: tableWidth, overflowY: 'auto' }}
             onScroll={handleScroll}
             className="virtual-grid"
             overscanCount={20}

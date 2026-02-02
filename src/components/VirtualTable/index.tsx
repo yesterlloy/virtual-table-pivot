@@ -205,7 +205,7 @@ export default memo((props: VirtualTableProps) => {
                 <TableHeader
                     ref={headerRef}
                     columns={mergedColumns}
-                    width={tableWidth}
+                    width={tableWidth - 8} // Subtract approximate scrollbar width
                     onScroll={handleHeaderScroll}
                     meta={meta}
                 />
