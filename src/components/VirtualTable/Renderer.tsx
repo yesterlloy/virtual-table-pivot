@@ -8,7 +8,7 @@ import { Grid } from "react-window";
 // @ts-ignore
 import "./index.less";
 import Cell, { CellProps } from "./Cell";
-import { ROW_HEIGHT } from "@/utils/vars";
+import { ROW_HEIGHT, OVERSCAN_COUNT } from "@/utils/vars";
 import { TableRow, CustomTreeNode, MetaItem } from "@/types";
 
 interface RendererProps {
@@ -126,6 +126,7 @@ const Renderer: React.FC<RendererProps> = (props) => {
 
     // 处理滚动事件
     const handleScroll = useCallback((e: any) => {
+        console.log('handleScroll', e, onScroll);
         // If e has scrollLeft/scrollTop (v1 style)
         if (e && typeof e.scrollLeft === 'number') {
              if (onScroll) onScroll(e);
@@ -142,28 +143,55 @@ const Renderer: React.FC<RendererProps> = (props) => {
     }, [onScroll]);
 
 
-    // 计算最大行合并数
-    const maxRowSpan = useMemo(() => {
-        let max = 1;
-        if (data && data.length > 0) {
-            data.forEach(row => {
-                if (row.cells) {
-                    row.cells.forEach(cell => {
-                        if (cell.rowspan > max) {
-                            max = cell.rowspan;
-                        }
-                    });
+    // Precompute merged cells map for "cut-off" handling
+    const mergedCellsMap = useMemo(() => {
+        const map = new Map<string, {
+            startIndex: number;
+            rowspan: number;
+            content: any;
+            data: any;
+            expandable?: boolean;
+            expanded?: boolean;
+            level?: number;
+            rowKey?: string;
+            onClick?: (record: any) => void;
+        }>();
+
+        tableData.forEach((row, rowIndex) => {
+            row.cells.forEach((cell, colIndex) => {
+                // Only map large merges that exceed the overscan count
+                if (cell.rowspan > OVERSCAN_COUNT) {
+                    // Record this merged group
+                    // Key for the start cell is not strictly needed here but conceptually it's the anchor
+                    const mergeInfo = {
+                        startIndex: rowIndex,
+                        rowspan: cell.rowspan,
+                        content: cell.content,
+                        data: cell.data,
+                        expandable: cell.expandable,
+                        expanded: cell.expanded,
+                        level: cell.level,
+                        rowKey: cell.rowKey,
+                        onClick: cell.onClick
+                    };
+                    
+                    // Map every cell in this merge range to the start info
+                    for (let i = 0; i < cell.rowspan; i++) {
+                        const currentKey = `${rowIndex + i}-${colIndex}`;
+                        map.set(currentKey, mergeInfo);
+                    }
                 }
             });
-        }
-        return max;
-    }, [data]);
+        });
+        return map;
+    }, [tableData]);
 
+    console.log('mergedCellsMap', mergedCellsMap);
     // 计算表格高度
     const tableHeight = (typeof scroll?.y === 'number' ? scroll.y : parseInt(scroll?.y as string || '400')) || 400;
 
     return (
-        <Grid<UserCellProps>
+        <Grid<UserCellProps & { mergedCellsMap: any }>
             gridRef={gridRef}
             columnCount={columnCount}
             columnWidth={getColumnWidth}
@@ -171,16 +199,16 @@ const Renderer: React.FC<RendererProps> = (props) => {
             rowHeight={getRowHeight} // Use simplified height
             style={{ height: tableHeight - 40, width: tableWidth, overflowY: 'auto' }}
             onScroll={handleScroll}
-            className={`virtual-grid row-${maxRowSpan}`}
-            overscanCount={maxRowSpan + 3}
-            
+            className="virtual-grid"
+            overscanCount={OVERSCAN_COUNT} // Reasonable constant covering the threshold
             cellComponent={Cell as any}
             cellProps={{
                 mergedData,
                 columns: leafColumns,
                 data: tableData,
                 handleExpand: props.handleExpand,
-                meta: props.meta
+                meta: props.meta,
+                mergedCellsMap: mergedCellsMap
             }}
         />
     );

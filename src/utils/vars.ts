@@ -10,3 +10,5 @@ export const COL_WIDTH = 100;
 export const EMPTY_VALUE = '-';
 
 export const TOTAL_DEFAULT_VALUE = '合计';
+
+export const OVERSCAN_COUNT = 20;

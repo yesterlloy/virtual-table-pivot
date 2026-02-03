@@ -77,8 +77,8 @@ const evaluateExpression = (expression: string, context: Record<string, number>)
 const aggregators: Record<string, (values: any[]) => number> = {
     sum: (values) => values.reduce((acc, val) => acc + (Number(val) || 0), 0),
     avg: (values) => {
-        const validValues = values.filter(val => !isNaN(Number(val)));
-        return validValues.length > 0 ? validValues.reduce((acc, val) => acc + Number(val), 0) / validValues.length : 0;
+        const validValues = values//.filter(val => !isNaN(Number(val)));
+        return validValues.length > 0 ? validValues.reduce((acc, val) => acc + (isNaN(Number(val)) ? 0 : Number(val)), 0) / validValues.length : 0;
     },
     count: (values) => values.length,
     min: (values) => Math.min(...values.map(val => Number(val) || Infinity)),
@@ -479,14 +479,17 @@ const pivotDataHandler = (params: PivotParams) => {
 
                             const valueField = valueNode.field;
                             const aggregator = valueNode.calculateType || 'sum';
+                           
 
                             // 计算当前组的聚合值
                             const cellRecords = records.filter(record => generateKey(record, colFields) === colKey);
                             const valuesToAggregate = cellRecords.map(record => getFieldValue(record, valueField));
+                           
                             let val = 0;
                             if (aggregators[aggregator]) {
                                 val = aggregators[aggregator](valuesToAggregate);
                             }
+                           
                             currentContext[valueNode.field] = val;
                         });
 
