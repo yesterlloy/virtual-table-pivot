@@ -1,4 +1,5 @@
 .trae
+.claude
 .pnpm-store
 dist
 node_modules

@@ -746,10 +746,25 @@ const pivotDataHandler = (params: PivotParams) => {
             for (let rowIndex = 1; rowIndex < dataRows.length; rowIndex++) {
                 const cell = dataRows[rowIndex][colIndex];
 
+                // 检查所有前序行维度是否相同（如果存在前序维度）
+                let allPrevDimensionsSame = true;
+                if (colIndex > 0) {
+                    for (let prevIndex = 0; prevIndex < colIndex; prevIndex++) {
+                        const prevCellCurrent = dataRows[startRowIndex][prevIndex];
+                        const prevCellRow = dataRows[rowIndex][prevIndex];
+                        // 比较前序维度的内容是否相同
+                        if (prevCellCurrent.content !== prevCellRow.content) {
+                            allPrevDimensionsSame = false;
+                            break;
+                        }
+                    }
+                }
+
                 if (
                     cell.content !== EMPTY_VALUE &&
                     (hasTotal ? cell.content !== totalLabel : true) &&
-                    cell.content === currentContent
+                    cell.content === currentContent &&
+                    allPrevDimensionsSame
                 ) {
                     cell.rowspan = 0;
                     dataRows[startRowIndex][colIndex].rowspan++;
