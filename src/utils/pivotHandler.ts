@@ -66,7 +66,17 @@ const evaluateExpression = (expression: string, context: Record<string, number>)
         }
 
         // 执行计算
-        return new Function(`return ${processedExpr}`)();
+        const rs = new Function(`return ${processedExpr}`)();
+        // if(context.satisfaction_count && context.satisfaction_denominator_count) {
+            console.log('expr==', rs, expression, context)
+        // }
+
+        // 验证结果是否为有限数字
+        if (typeof rs !== 'number' || !isFinite(rs) || isNaN(rs)) {
+            return null;
+        }
+
+        return rs;
     } catch (error) {
         console.error('Expression evaluation error:', expression, error);
         return null;
@@ -127,8 +137,9 @@ const pivotDataHandler = (params: PivotParams) => {
     // 获取所有叶子节点
     const rowLeafNodes = getAllLeafNodes(rows) as DimensionNode[];
     const colLeafNodes = getAllLeafNodes(columns) as DimensionNode[];
-    const valueLeafNodes = (getAllLeafNodes(values) as MetricNode[]).filter(node => !node.hidden);
-    console.log('透视表值字段', valueLeafNodes);
+    const allValueLeafNodes = getAllLeafNodes(values) as MetricNode[]; // 包含 hidden 字段，用于计算
+    const valueLeafNodes = allValueLeafNodes.filter(node => !node.hidden); // 仅用于显示
+    console.log('透视表值字段 (可见)', valueLeafNodes);
 
     // 提取字段名
     const rowFields = rowLeafNodes.map(node => node.field);
@@ -473,35 +484,35 @@ const pivotDataHandler = (params: PivotParams) => {
                     sortedColGroups.forEach(([colKey, _colData]) => {
                         const currentContext: Record<string, number> = {};
 
-                        // 1. 计算基础聚合指标
-                        valueLeafNodes.forEach(valueNode => {
+                        // 1. 计算基础聚合指标 (计算所有值字段，包括隐藏的)
+                        allValueLeafNodes.forEach(valueNode => {
                             if (valueNode.calculateType === 'expr') return;
 
                             const valueField = valueNode.field;
                             const aggregator = valueNode.calculateType || 'sum';
-                           
+
 
                             // 计算当前组的聚合值
                             const cellRecords = records.filter(record => generateKey(record, colFields) === colKey);
                             const valuesToAggregate = cellRecords.map(record => getFieldValue(record, valueField));
-                           
+
                             let val = 0;
                             if (aggregators[aggregator]) {
                                 val = aggregators[aggregator](valuesToAggregate);
                             }
-                           
+
                             currentContext[valueNode.field] = val;
                         });
 
-                        // 2. 计算表达式指标
-                        valueLeafNodes.forEach(valueNode => {
+                        // 2. 计算表达式指标 (计算所有值字段，包括隐藏的)
+                        allValueLeafNodes.forEach(valueNode => {
                             if (valueNode.calculateType === 'expr' && valueNode.expression) {
                                 const result = evaluateExpression(valueNode.expression, currentContext);
                                 currentContext[valueNode.field] = result !== null ? result : 0;
                             }
                         });
 
-                        // 3. 生成单元格
+                        // 3. 生成单元格 (仅显示非隐藏字段)
                         valueLeafNodes.forEach(valueNode => {
                             let aggregatedValue: string | number = currentContext[valueNode.field];
 
@@ -656,8 +667,8 @@ const pivotDataHandler = (params: PivotParams) => {
         sortedColGroups.forEach(([colKey, _colData]) => {
             const currentContext: Record<string, number> = {};
 
-            // 1. 计算基础聚合指标
-            valueLeafNodes.forEach(valueNode => {
+            // 1. 计算基础聚合指标 (计算所有值字段，包括隐藏的)
+            allValueLeafNodes.forEach(valueNode => {
                 if (valueNode.calculateType === 'expr') return;
 
                 const valueField = valueNode.field;
@@ -675,15 +686,15 @@ const pivotDataHandler = (params: PivotParams) => {
                 currentContext[valueNode.field] = val;
             });
 
-            // 2. 计算表达式指标
-            valueLeafNodes.forEach(valueNode => {
+            // 2. 计算表达式指标 (计算所有值字段，包括隐藏的)
+            allValueLeafNodes.forEach(valueNode => {
                 if (valueNode.calculateType === 'expr' && valueNode.expression) {
                     const result = evaluateExpression(valueNode.expression, currentContext);
                     currentContext[valueNode.field] = result !== null ? result : 0;
                 }
             });
 
-            // 3. 生成单元格
+            // 3. 生成单元格 (仅显示非隐藏字段)
             valueLeafNodes.forEach(valueNode => {
                 let aggregatedValue: string | number = currentContext[valueNode.field];
 

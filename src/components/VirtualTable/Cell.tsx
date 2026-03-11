@@ -212,6 +212,9 @@ const Cell: React.FC<CellProps> = ({
     // We should check if formatter exists
     if ('formatter' in column && column.formatter && !isReactElement) {
         // Pass original content and record/data
+        if(cell.data.satisfaction_denominator_count) {
+            console.log('expr formatter====', cellContent, cell, column)
+        }
         cellContent = column.formatter(cellContent, cell.data);
     }
 

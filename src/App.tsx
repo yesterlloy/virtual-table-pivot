@@ -99,9 +99,9 @@ const App = () => {
                 field: 'expr_test', 
                 title: 'Amt * Price', 
                 calculateType: 'expr', 
-                expression: '{amount} * {price}', 
+                expression: '{price} / {amount}', 
                 width: 120,
-                hidden: true // Hidden test
+                hidden: false // Hidden test
             }
         ];
 
