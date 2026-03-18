@@ -96,6 +96,7 @@ export interface PivotParams {
     meta: MetaItem[];
     sortParams: SortParam[];
     fields: PivotFields;
+    config?: VirtualTableConfig;
 }
 
 export interface VirtualTableConfig {
