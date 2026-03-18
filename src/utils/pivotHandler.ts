@@ -5,7 +5,7 @@
  *
  */
 import { EMPTY_VALUE, TOTAL_DEFAULT_VALUE } from './vars';
-import { CustomTreeNode, PivotParams, DataCell, TableRow, DimensionNode, MetricNode } from '@/types';
+import { CustomTreeNode, PivotParams, DataCell, TableRow, DimensionNode, MetricNode, VirtualTableConfig } from '@/types';
 
 // 辅助函数：递归获取所有叶子节点
 const getAllLeafNodes = (nodes: CustomTreeNode[]): CustomTreeNode[] => {
@@ -121,7 +121,7 @@ const currentClickState = new Map<string, any>();
 // 合计行状态管理
 const totalState = new Map<string, number>();
 
-const pivotDataHandler = (params: PivotParams) => {
+const pivotDataHandler = (params: PivotParams, _config?: VirtualTableConfig) => {
     const { data, sortParams, fields } = params;
     const { rows, columns, values } = fields;
 

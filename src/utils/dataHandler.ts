@@ -1,8 +1,8 @@
 import pivotDataHandler from './pivotHandler';
-import { PivotParams, DataCell, TableRow } from '@/types';
+import { PivotParams, DataCell, TableRow, VirtualTableConfig } from '@/types';
 import { EMPTY_VALUE } from './vars';
 
-export const dataHandler = (params: PivotParams) => {
+export const dataHandler = (params: PivotParams, config?: VirtualTableConfig) => {
     const { data, fields } = params;
     const { rows, columns, values } = fields;
 
@@ -51,5 +51,5 @@ export const dataHandler = (params: PivotParams) => {
     // b: Group Table (columns empty) -> Handled by pivotDataHandler (rows only)
     // c: Pivot Table (rows & columns exist) -> Handled by pivotDataHandler
 
-    return pivotDataHandler(params);
+    return pivotDataHandler(params, config);
 }

@@ -13,7 +13,7 @@ import { cloneDeep } from "@/utils/cloneDeep";
 import { COL_WIDTH } from "@/utils/vars";
 import Renderer from "./Renderer";
 import { dataHandler } from "@/utils/dataHandler";
-import { PivotParams, TableRow, CustomTreeNode } from "@/types";
+import { PivotParams, TableRow, CustomTreeNode, VirtualTableConfig } from "@/types";
 // @ts-ignore
 import "./index.less";
 
@@ -21,10 +21,11 @@ interface VirtualTableProps extends PivotParams {
     scroll?: { x?: number | string; y?: number | string };
     className?: string;
     style?: React.CSSProperties;
+    config?: VirtualTableConfig;
 }
 
 export default memo((props: VirtualTableProps) => {
-    const { scroll, data, meta, sortParams, fields } = props;
+    const { scroll, data, meta, sortParams, fields, config } = props;
     console.log('VirtualTable init props==', props)
     const [tableWidth, setTableWidth] = useState(0);
     //当前占用的宽度总和
@@ -60,13 +61,13 @@ export default memo((props: VirtualTableProps) => {
             fields
         };
 
-        let rs = dataHandler(params);
+        let rs = dataHandler(params, config);
         listHandlerRef.current = rs;
         if (rs.tableColumns) {
             setColumns(rs.tableColumns);
         }
         handleExpand();
-    }, [data, meta, sortParams, fields, handleExpand]);
+    }, [data, meta, sortParams, fields, handleExpand, config]);
 
     // 将宽度转换成数字
     const getIntWidth = useCallback((wid: string | number | undefined) => {

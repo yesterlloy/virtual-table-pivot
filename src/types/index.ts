@@ -97,3 +97,11 @@ export interface PivotParams {
     sortParams: SortParam[];
     fields: PivotFields;
 }
+
+export interface VirtualTableConfig {
+    /**
+     * Enable row index column
+     * @description When true, adds a row index column as the first column
+     */
+    rowIndex?: boolean;
+}
