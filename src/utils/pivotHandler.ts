@@ -122,7 +122,7 @@ const currentClickState = new Map<string, any>();
 const totalState = new Map<string, number>();
 
 const pivotDataHandler = (params: PivotParams) => {
-    const { data, sortParams, fields } = params;
+    const { data, sortParams, fields, config } = params;
     const { rows, columns, values } = fields;
 
     // 如果没有数据或没有配置维度，直接返回空结果
@@ -430,6 +430,16 @@ const pivotDataHandler = (params: PivotParams) => {
                     // 生成小计行
                     const subtotalRow: DataCell[] = [];
 
+                    // Add empty index cell at the beginning if enabled
+                    if (config?.showLine) {
+                        subtotalRow.unshift({
+                            content: EMPTY_VALUE,
+                            rowspan: 1,
+                            colspan: 1,
+                            data: null
+                        });
+                    }
+
                     // 添加行维度数据
                     let currentSubtotalRowKey = '';
                     rowFields.forEach((_field, idx) => {
@@ -712,6 +722,16 @@ const pivotDataHandler = (params: PivotParams) => {
             });
         });
 
+        // Add index cell at the beginning if enabled
+        if (config?.showLine) {
+            rowCells.unshift({
+                content: 1,  // Temporary value, will be updated
+                rowspan: 1,  // Will be updated based on first dimension
+                colspan: 1,
+                data: rowData
+            });
+        }
+
         dataRows.push({ cells: rowCells, rowKey: currentRowKey });
     });
 
@@ -812,7 +832,23 @@ const pivotDataHandler = (params: PivotParams) => {
 
         // 5. 应用行合并逻辑 (mutates visibleCells)
         rowSpanHandler(visibleCells);
-        
+
+        // Update index rowspan and renumber if showLine is enabled
+        if (config?.showLine && rowLeafNodes.length > 0) {
+            let rowIndex = 1;
+            for (let i = 0; i < visibleCells.length; i++) {
+                const indexCell = visibleCells[i][0];
+                const firstDimCell = visibleCells[i][1];  // First dimension is at position 1
+
+                if (firstDimCell.rowspan > 0) {
+                    indexCell.rowspan = firstDimCell.rowspan;
+                    indexCell.content = rowIndex++;
+                } else {
+                    indexCell.rowspan = 0;
+                }
+            }
+        }
+
         // Reconstruct TableRow[]
         const resultList = visibleRows.map((row, index) => ({
             rowKey: row.rowKey,
@@ -836,6 +872,26 @@ const pivotDataHandler = (params: PivotParams) => {
         return { cells, rowKey };
     });
 
+    // Update index rowspan for all rows (including subtotals) in initial result
+    if (config?.showLine && rowLeafNodes.length > 0) {
+        // First apply rowSpanHandler to set up rowspan for dimension cells
+        rowSpanHandler(dataRowsWithSubtotals);
+
+        // Then update index cells
+        let rowIndex = 1;
+        for (let i = 0; i < dataRowsWithSubtotals.length; i++) {
+            const indexCell = dataRowsWithSubtotals[i][0];
+            const firstDimCell = dataRowsWithSubtotals[i][1];  // First dimension is at position 1
+
+            if (firstDimCell.rowspan > 0) {
+                indexCell.rowspan = firstDimCell.rowspan;
+                indexCell.content = rowIndex++;
+            } else {
+                indexCell.rowspan = 0;
+            }
+        }
+    }
+
     // 5. 将数据行添加到结果中
     // result.push(...dataRowsWithSubtotalsAndRowKeys);
     
@@ -845,6 +901,17 @@ const pivotDataHandler = (params: PivotParams) => {
     // Generate Columns Configuration for TableHeader
     const generateColumns = () => {
         const columnsConfig: CustomTreeNode[] = [];
+
+        // Add index column first if enabled
+        if (config?.showLine) {
+            columnsConfig.unshift({
+                field: '__row_index__',
+                title: config.showLineTitle || '序号',
+                width: config.lineWidth || '70px',
+                key: '__row_index__',
+                type: 'index'
+            } as any);
+        }
 
         // 1. Row Dimensions (Fixed Left)
         rowLeafNodes.forEach(node => {
