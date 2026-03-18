@@ -95,7 +95,7 @@ describe('dataHandler - row index feature', () => {
 
         expect(result.list[0].cells[0].content).toBe(1);
         expect(result.list[1].cells[0].content).toBe(2);
-        expect(result.tableColumns[0].title).toBe('序号');
+        expect(result.tableColumns![0].title).toBe('序号');
     });
 
     it('should not add index column when showLine is false', () => {
@@ -110,7 +110,7 @@ describe('dataHandler - row index feature', () => {
         const result = dataHandler({ data, fields, meta: [], sortParams: [], config });
 
         expect(result.list[0].cells[0].content).toBe(1); // id value, not index
-        expect(result.tableColumns[0].title).toBe('ID');
+        expect(result.tableColumns![0].title).toBe('ID');
     });
 
     it('should add index column in Group Table mode with correct rowspan', () => {
@@ -125,7 +125,7 @@ describe('dataHandler - row index feature', () => {
                 { field: 'city', title: 'City' }
             ],
             columns: [],
-            values: [{ field: 'amount', title: 'Amount', calculateType: 'sum' }]
+            values: [{ field: 'amount', title: 'Amount', calculateType: 'sum' as const }]
         };
         const config = { showLine: true };
 
@@ -153,7 +153,7 @@ describe('dataHandler - row index feature', () => {
 
         const result = dataHandler({ data, fields, meta: [], sortParams: [], config });
 
-        expect(result.tableColumns[0].title).toBe('No.');
+        expect(result.tableColumns![0].title).toBe('No.');
     });
 
     it('should use custom lineWidth', () => {
@@ -167,7 +167,7 @@ describe('dataHandler - row index feature', () => {
 
         const result = dataHandler({ data, fields, meta: [], sortParams: [], config });
 
-        expect(result.tableColumns[0].width).toBe('50px');
+        expect(result.tableColumns![0].width).toBe('50px');
     });
 
     it('should have empty index cell for subtotal rows', () => {
@@ -178,7 +178,7 @@ describe('dataHandler - row index feature', () => {
         const fields = {
             rows: [{ field: 'province', title: 'Province', total: { enabled: true } }],
             columns: [],
-            values: [{ field: 'amount', title: 'Amount', calculateType: 'sum' }]
+            values: [{ field: 'amount', title: 'Amount', calculateType: 'sum' as const }]
         };
         const config = { showLine: true };
 

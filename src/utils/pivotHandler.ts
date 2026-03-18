@@ -67,9 +67,6 @@ const evaluateExpression = (expression: string, context: Record<string, number>)
 
         // 执行计算
         const rs = new Function(`return ${processedExpr}`)();
-        // if(context.satisfaction_count && context.satisfaction_denominator_count) {
-            console.log('expr==', rs, expression, context)
-        // }
 
         // 验证结果是否为有限数字
         if (typeof rs !== 'number' || !isFinite(rs) || isNaN(rs)) {
@@ -139,7 +136,6 @@ const pivotDataHandler = (params: PivotParams) => {
     const colLeafNodes = getAllLeafNodes(columns) as DimensionNode[];
     const allValueLeafNodes = getAllLeafNodes(values) as MetricNode[]; // 包含 hidden 字段，用于计算
     const valueLeafNodes = allValueLeafNodes.filter(node => !node.hidden); // 仅用于显示
-    console.log('透视表值字段 (可见)', valueLeafNodes);
 
     // 提取字段名
     const rowFields = rowLeafNodes.map(node => node.field);
@@ -324,7 +320,6 @@ const pivotDataHandler = (params: PivotParams) => {
 
     // 切换展开/收起状态
     const toggleExpand = (level: number, rowKey: string) => {
-        console.log('toggleExpand', level, rowKey);
         if (expandState.has(level)) {
             const levelState = expandState.get(level)!;
             const currentState = levelState.get(rowKey);
@@ -934,7 +929,6 @@ const pivotDataHandler = (params: PivotParams) => {
             });
         } else {
             const colHeaderTree: CustomTreeNode[] = [];
-            console.log('透视表列字段 sortedColGroups', sortedColGroups);
 
             sortedColGroups.forEach(([colKey, _colData]) => {
                 const colValues = colKey.split('|').filter(s => s !== ''); 

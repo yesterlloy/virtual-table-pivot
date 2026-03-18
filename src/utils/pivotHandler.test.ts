@@ -266,12 +266,6 @@ describe('pivotDataHandler', () => {
 
         expect(result.list).toBeDefined();
 
-        // Log the results
-        console.log('Pivot mode results:', JSON.stringify(result.list.map(row => ({
-            rowKey: row.rowKey,
-            cells: row.cells.map(c => c.content)
-        })), null, 2));
-
         // Check that all numeric cells have valid values
         result.list.forEach(row => {
             row.cells.forEach(cell => {
@@ -330,7 +324,6 @@ describe('pivotDataHandler', () => {
 
         // Find ratio cell (should be the first value column based on config order)
         const ratioCell = zhejiangRow!.cells[1]; // First cell is province, second is ratio (first in values config)
-        console.log('Ratio cell (expr first):', ratioCell.content);
 
         // Ratio should be approximately 0.367
         if (typeof ratioCell.content === 'number') {
