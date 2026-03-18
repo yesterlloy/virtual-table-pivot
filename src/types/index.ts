@@ -97,3 +97,16 @@ export interface PivotParams {
     sortParams: SortParam[];
     fields: PivotFields;
 }
+
+export interface VirtualTableConfig {
+    showLine?: boolean;        // default: false
+    showLineTitle?: string;    // default: '序号'
+    lineWidth?: string;        // default: '70px'
+}
+
+export interface VirtualTableProps extends PivotParams {
+    scroll?: { x?: number | string; y?: number | string };
+    className?: string;
+    style?: React.CSSProperties;
+    config?: VirtualTableConfig;
+}
