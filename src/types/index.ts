@@ -96,12 +96,17 @@ export interface PivotParams {
     meta: MetaItem[];
     sortParams: SortParam[];
     fields: PivotFields;
+    config?: VirtualTableConfig;
 }
 
 export interface VirtualTableConfig {
-    /**
-     * Enable row index column
-     * @description When true, adds a row index column as the first column
-     */
-    rowIndex?: boolean;
+    showLine?: boolean;        // default: false
+    showLineTitle?: string;    // default: '序号'
+    lineWidth?: string;        // default: '70px'
+}
+
+export interface VirtualTableProps extends PivotParams {
+    scroll?: { x?: number | string; y?: number | string };
+    className?: string;
+    style?: React.CSSProperties;
 }

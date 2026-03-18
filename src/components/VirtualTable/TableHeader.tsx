@@ -115,12 +115,6 @@ const TableHeader = forwardRef<HTMLDivElement, TableHeaderProps>(({ columns, wid
         return rows;
     }, [columns, meta]);
 
-    console.group('virtualTable header');
-    console.log('virtualTable meta', meta);
-    console.log('virtualTable columns', columns);
-    console.log('virtualTable header', headerRows);
-    console.groupEnd();
-
     return (
         <div
             ref={ref}

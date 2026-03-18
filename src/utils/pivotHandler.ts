@@ -5,7 +5,7 @@
  *
  */
 import { EMPTY_VALUE, TOTAL_DEFAULT_VALUE } from './vars';
-import { CustomTreeNode, PivotParams, DataCell, TableRow, DimensionNode, MetricNode, VirtualTableConfig } from '@/types';
+import { CustomTreeNode, PivotParams, DataCell, TableRow, DimensionNode, MetricNode } from '@/types';
 
 // 辅助函数：递归获取所有叶子节点
 const getAllLeafNodes = (nodes: CustomTreeNode[]): CustomTreeNode[] => {
@@ -67,9 +67,6 @@ const evaluateExpression = (expression: string, context: Record<string, number>)
 
         // 执行计算
         const rs = new Function(`return ${processedExpr}`)();
-        // if(context.satisfaction_count && context.satisfaction_denominator_count) {
-            console.log('expr==', rs, expression, context)
-        // }
 
         // 验证结果是否为有限数字
         if (typeof rs !== 'number' || !isFinite(rs) || isNaN(rs)) {
@@ -121,8 +118,8 @@ const currentClickState = new Map<string, any>();
 // 合计行状态管理
 const totalState = new Map<string, number>();
 
-const pivotDataHandler = (params: PivotParams, _config?: VirtualTableConfig) => {
-    const { data, sortParams, fields } = params;
+const pivotDataHandler = (params: PivotParams) => {
+    const { data, sortParams, fields, config } = params;
     const { rows, columns, values } = fields;
 
     // 如果没有数据或没有配置维度，直接返回空结果
@@ -139,7 +136,6 @@ const pivotDataHandler = (params: PivotParams, _config?: VirtualTableConfig) => 
     const colLeafNodes = getAllLeafNodes(columns) as DimensionNode[];
     const allValueLeafNodes = getAllLeafNodes(values) as MetricNode[]; // 包含 hidden 字段，用于计算
     const valueLeafNodes = allValueLeafNodes.filter(node => !node.hidden); // 仅用于显示
-    console.log('透视表值字段 (可见)', valueLeafNodes);
 
     // 提取字段名
     const rowFields = rowLeafNodes.map(node => node.field);
@@ -324,7 +320,6 @@ const pivotDataHandler = (params: PivotParams, _config?: VirtualTableConfig) => 
 
     // 切换展开/收起状态
     const toggleExpand = (level: number, rowKey: string) => {
-        console.log('toggleExpand', level, rowKey);
         if (expandState.has(level)) {
             const levelState = expandState.get(level)!;
             const currentState = levelState.get(rowKey);
@@ -399,8 +394,8 @@ const pivotDataHandler = (params: PivotParams, _config?: VirtualTableConfig) => 
 
             // 遍历当前层级的所有小计组
             Object.keys(levelSubtotals).forEach(groupKey => {
-                const { records, config } = levelSubtotals[groupKey];
-                const { label = TOTAL_DEFAULT_VALUE, position = 'bottom' } = config || {};
+                const { records, config: subtotalConfig } = levelSubtotals[groupKey];
+                const { label = TOTAL_DEFAULT_VALUE, position = 'bottom' } = subtotalConfig || {};
 
                 // 查找当前组在数据中的位置
                 const groupValues = groupKey.split('|');
@@ -429,6 +424,16 @@ const pivotDataHandler = (params: PivotParams, _config?: VirtualTableConfig) => 
                 if (startIndex !== -1) {
                     // 生成小计行
                     const subtotalRow: DataCell[] = [];
+
+                    // Add empty index cell at the beginning if enabled
+                    if (config?.showLine) {
+                        subtotalRow.unshift({
+                            content: EMPTY_VALUE,
+                            rowspan: 1,
+                            colspan: 1,
+                            data: null
+                        });
+                    }
 
                     // 添加行维度数据
                     let currentSubtotalRowKey = '';
@@ -712,6 +717,16 @@ const pivotDataHandler = (params: PivotParams, _config?: VirtualTableConfig) => 
             });
         });
 
+        // Add index cell at the beginning if enabled
+        if (config?.showLine) {
+            rowCells.unshift({
+                content: 1,  // Temporary value, will be updated
+                rowspan: 1,  // Will be updated based on first dimension
+                colspan: 1,
+                data: rowData
+            });
+        }
+
         dataRows.push({ cells: rowCells, rowKey: currentRowKey });
     });
 
@@ -812,7 +827,23 @@ const pivotDataHandler = (params: PivotParams, _config?: VirtualTableConfig) => 
 
         // 5. 应用行合并逻辑 (mutates visibleCells)
         rowSpanHandler(visibleCells);
-        
+
+        // Update index rowspan and renumber if showLine is enabled
+        if (config?.showLine && rowLeafNodes.length > 0) {
+            let rowIndex = 1;
+            for (let i = 0; i < visibleCells.length; i++) {
+                const indexCell = visibleCells[i][0];
+                const firstDimCell = visibleCells[i][1];  // First dimension is at position 1
+
+                if (firstDimCell.rowspan > 0) {
+                    indexCell.rowspan = firstDimCell.rowspan;
+                    indexCell.content = rowIndex++;
+                } else {
+                    indexCell.rowspan = 0;
+                }
+            }
+        }
+
         // Reconstruct TableRow[]
         const resultList = visibleRows.map((row, index) => ({
             rowKey: row.rowKey,
@@ -836,6 +867,26 @@ const pivotDataHandler = (params: PivotParams, _config?: VirtualTableConfig) => 
         return { cells, rowKey };
     });
 
+    // Update index rowspan for all rows (including subtotals) in initial result
+    if (config?.showLine && rowLeafNodes.length > 0) {
+        // First apply rowSpanHandler to set up rowspan for dimension cells
+        rowSpanHandler(dataRowsWithSubtotals);
+
+        // Then update index cells
+        let rowIndex = 1;
+        for (let i = 0; i < dataRowsWithSubtotals.length; i++) {
+            const indexCell = dataRowsWithSubtotals[i][0];
+            const firstDimCell = dataRowsWithSubtotals[i][1];  // First dimension is at position 1
+
+            if (firstDimCell.rowspan > 0) {
+                indexCell.rowspan = firstDimCell.rowspan;
+                indexCell.content = rowIndex++;
+            } else {
+                indexCell.rowspan = 0;
+            }
+        }
+    }
+
     // 5. 将数据行添加到结果中
     // result.push(...dataRowsWithSubtotalsAndRowKeys);
     
@@ -845,6 +896,17 @@ const pivotDataHandler = (params: PivotParams, _config?: VirtualTableConfig) => 
     // Generate Columns Configuration for TableHeader
     const generateColumns = () => {
         const columnsConfig: CustomTreeNode[] = [];
+
+        // Add index column first if enabled
+        if (config?.showLine) {
+            columnsConfig.unshift({
+                field: '__row_index__',
+                title: config.showLineTitle || '序号',
+                width: config.lineWidth || '70px',
+                key: '__row_index__',
+                type: 'index'
+            } as any);
+        }
 
         // 1. Row Dimensions (Fixed Left)
         rowLeafNodes.forEach(node => {
@@ -867,7 +929,6 @@ const pivotDataHandler = (params: PivotParams, _config?: VirtualTableConfig) => 
             });
         } else {
             const colHeaderTree: CustomTreeNode[] = [];
-            console.log('透视表列字段 sortedColGroups', sortedColGroups);
 
             sortedColGroups.forEach(([colKey, _colData]) => {
                 const colValues = colKey.split('|').filter(s => s !== ''); 

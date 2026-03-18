@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import pivotDataHandler from './pivotHandler';
 import { PivotParams, MetricNode } from '@/types';
+import { EMPTY_VALUE } from './vars';
 
 const mockData = [
     { province: 'Zhejiang', city: 'Hangzhou', type: 'Furniture', amount: 10 },
@@ -265,12 +266,6 @@ describe('pivotDataHandler', () => {
 
         expect(result.list).toBeDefined();
 
-        // Log the results
-        console.log('Pivot mode results:', JSON.stringify(result.list.map(row => ({
-            rowKey: row.rowKey,
-            cells: row.cells.map(c => c.content)
-        })), null, 2));
-
         // Check that all numeric cells have valid values
         result.list.forEach(row => {
             row.cells.forEach(cell => {
@@ -329,7 +324,6 @@ describe('pivotDataHandler', () => {
 
         // Find ratio cell (should be the first value column based on config order)
         const ratioCell = zhejiangRow!.cells[1]; // First cell is province, second is ratio (first in values config)
-        console.log('Ratio cell (expr first):', ratioCell.content);
 
         // Ratio should be approximately 0.367
         if (typeof ratioCell.content === 'number') {
@@ -392,5 +386,150 @@ describe('pivotDataHandler', () => {
 
         // profit = 150 - 50 = 100
         expect(jiangsuRow!.cells[2].content).toBe(100);
+    });
+});
+
+describe('pivotDataHandler - row index feature', () => {
+    it('should add index column in Group Table mode when showLine is true', () => {
+        const data = [
+            { province: 'Zhejiang', city: 'Hangzhou', amount: 100 },
+            { province: 'Zhejiang', city: 'Ningbo', amount: 200 },
+            { province: 'Jiangsu', city: 'Nanjing', amount: 150 }
+        ];
+        const params: PivotParams = {
+            data,
+            meta: [],
+            sortParams: [],
+            fields: {
+                rows: [
+                    { field: 'province', title: 'Province' },
+                    { field: 'city', title: 'City' }
+                ],
+                columns: [],
+                values: [{ field: 'amount', title: 'Amount', calculateType: 'sum' }]
+            },
+            config: { showLine: true }
+        };
+
+        const result = pivotDataHandler(params);
+
+        // Check index column in tableColumns
+        expect(result.tableColumns).toBeDefined();
+        if (result.tableColumns) {
+            expect(result.tableColumns[0].field).toBe('__row_index__');
+            expect(result.tableColumns[0].title).toBe('序号');
+        }
+
+        // Check index cells in data rows
+        const filteredList = result.dataExpandFilter(result.list);
+        expect(filteredList[0].cells[0].content).toBe(1);
+        expect(filteredList.some(row => row.cells[0].content === 2)).toBe(true);
+    });
+
+    it('should add index column in Pivot Table mode when showLine is true', () => {
+        const data = [
+            { province: 'Zhejiang', type: 'Furniture', amount: 100 },
+            { province: 'Zhejiang', type: 'Electronics', amount: 200 },
+            { province: 'Jiangsu', type: 'Furniture', amount: 150 }
+        ];
+        const params: PivotParams = {
+            data,
+            meta: [],
+            sortParams: [],
+            fields: {
+                rows: [{ field: 'province', title: 'Province' }],
+                columns: [{ field: 'type', title: 'Type' }],
+                values: [{ field: 'amount', title: 'Amount', calculateType: 'sum' }]
+            },
+            config: { showLine: true }
+        };
+
+        const result = pivotDataHandler(params);
+
+        // Check index column in tableColumns
+        expect(result.tableColumns).toBeDefined();
+        if (result.tableColumns) {
+            expect(result.tableColumns[0].field).toBe('__row_index__');
+        }
+
+        // Check index cells in data rows
+        expect(result.list.some(row => row.cells[0].content === 1)).toBe(true);
+    });
+
+    it('should use custom showLineTitle in pivot table', () => {
+        const data = [
+            { province: 'Zhejiang', amount: 100 }
+        ];
+        const params: PivotParams = {
+            data,
+            meta: [],
+            sortParams: [],
+            fields: {
+                rows: [{ field: 'province', title: 'Province' }],
+                columns: [],
+                values: [{ field: 'amount', title: 'Amount', calculateType: 'sum' }]
+            },
+            config: { showLine: true, showLineTitle: 'No.' }
+        };
+
+        const result = pivotDataHandler(params);
+
+        expect(result.tableColumns).toBeDefined();
+        if (result.tableColumns) {
+            expect(result.tableColumns[0].title).toBe('No.');
+        }
+    });
+
+    it('should use custom lineWidth in pivot table', () => {
+        const data = [
+            { province: 'Zhejiang', amount: 100 }
+        ];
+        const params: PivotParams = {
+            data,
+            meta: [],
+            sortParams: [],
+            fields: {
+                rows: [{ field: 'province', title: 'Province' }],
+                columns: [],
+                values: [{ field: 'amount', title: 'Amount', calculateType: 'sum' }]
+            },
+            config: { showLine: true, lineWidth: '60px' }
+        };
+
+        const result = pivotDataHandler(params);
+
+        expect(result.tableColumns).toBeDefined();
+        if (result.tableColumns) {
+            expect(result.tableColumns[0].width).toBe('60px');
+        }
+    });
+
+    it('should have empty index cell for subtotal rows in pivot table', () => {
+        const data = [
+            { province: 'Zhejiang', amount: 100 },
+            { province: 'Zhejiang', amount: 200 }
+        ];
+        const params: PivotParams = {
+            data,
+            meta: [],
+            sortParams: [],
+            fields: {
+                rows: [{ field: 'province', title: 'Province', total: { enabled: true } }],
+                columns: [],
+                values: [{ field: 'amount', title: 'Amount', calculateType: 'sum' }]
+            },
+            config: { showLine: true }
+        };
+
+        const result = pivotDataHandler(params);
+
+        // Find subtotal row by checking the province cell (index 1, since index 0 is the index column)
+        const subtotalRow = result.list.find(row =>
+            row.cells.length > 1 && (row.cells[1].content === '合计' || row.cells[1].content === 'Total')
+        );
+        if (subtotalRow) {
+            // The index cell (cells[0]) should be EMPTY_VALUE for subtotal rows
+            expect(subtotalRow.cells[0].content).toBe(EMPTY_VALUE);
+        }
     });
 });

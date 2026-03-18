@@ -126,7 +126,6 @@ const Renderer: React.FC<RendererProps> = (props) => {
 
     // 处理滚动事件
     const handleScroll = useCallback((e: any) => {
-        console.log('handleScroll', e, onScroll);
         // If e has scrollLeft/scrollTop (v1 style)
         if (e && typeof e.scrollLeft === 'number') {
              if (onScroll) onScroll(e);
@@ -186,7 +185,6 @@ const Renderer: React.FC<RendererProps> = (props) => {
         return map;
     }, [tableData]);
 
-    console.log('mergedCellsMap', mergedCellsMap);
     // 计算表格高度
     const tableHeight = (typeof scroll?.y === 'number' ? scroll.y : parseInt(scroll?.y as string || '400')) || 400;
 

@@ -26,14 +26,12 @@ interface VirtualTableProps extends PivotParams {
 
 export default memo((props: VirtualTableProps) => {
     const { scroll, data, meta, sortParams, fields, config } = props;
-    console.log('VirtualTable init props==', props)
     const [tableWidth, setTableWidth] = useState(0);
     //当前占用的宽度总和
     // const [usedWidth, setUsedWidth] = useState(0); // Removing this state to avoid loop
     // const [colCount, setColCount] = useState(0); // Removing this state to avoid loop
     const [list, setList] = useState<TableRow[]>([]);
     const [columns, setColumns] = useState<CustomTreeNode[]>([]);
-    console.log('list', list)
 
     // 列表处理函数，用于展开收起功能处理
     const listHandlerRef = useRef<{
@@ -45,7 +43,6 @@ export default memo((props: VirtualTableProps) => {
     const handleExpand = useCallback(() => {
         if (listHandlerRef.current) {
             let rs = listHandlerRef.current;
-            console.log('rs=', rs);
             if (!rs || !rs.list || !rs.dataExpandFilter) {
                 return;
             }
@@ -58,10 +55,11 @@ export default memo((props: VirtualTableProps) => {
             data,
             meta,
             sortParams,
-            fields
+            fields,
+            config
         };
 
-        let rs = dataHandler(params, config);
+        let rs = dataHandler(params);
         listHandlerRef.current = rs;
         if (rs.tableColumns) {
             setColumns(rs.tableColumns);
