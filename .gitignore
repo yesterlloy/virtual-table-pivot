@@ -4,3 +4,5 @@
 dist
 node_modules
 .worktrees
+.playwright-mcp
+src/test/*.json

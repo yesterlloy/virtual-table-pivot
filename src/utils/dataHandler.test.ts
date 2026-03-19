@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { dataHandler } from '../utils/dataHandler';
-import { PivotParams } from '../types';
+import { PivotParams, TableRow } from '../types';
 import { EMPTY_VALUE } from '../utils/vars';
 
 const mockData = [
@@ -193,5 +193,74 @@ describe('dataHandler - row index feature', () => {
             // The index cell (cells[0]) should be EMPTY_VALUE for subtotal rows
             expect(subtotalRow.cells[0].content).toBe(EMPTY_VALUE);
         }
+    });
+
+    it('should have matching columns and cells count in Group Table mode', () => {
+        const data = [
+            { province: 'Zhejiang', city: 'Hangzhou', amount: 100 },
+            { province: 'Zhejiang', city: 'Ningbo', amount: 200 },
+        ];
+        const fields = {
+            rows: [{ field: 'province', title: 'Province' }],
+            columns: [],
+            values: [{ field: 'amount', title: 'Amount', calculateType: 'sum' as const }]
+        };
+        const config = { showLine: true };
+
+        const result = dataHandler({ data, fields, meta: [], sortParams: [], config });
+
+        // Check columns count
+        const columnsCount = result.tableColumns?.length || 0;
+        console.log('Columns count:', columnsCount);
+        console.log('Columns:', result.tableColumns?.map(c => ({ field: c.field, title: c.title })));
+
+        // Check each row has matching cells count
+        result.list.forEach((row) => {
+            console.log('Row cells count:', row.cells.length);
+            expect(row.cells.length).toBe(columnsCount);
+        });
+
+        // Check filtered result also has matching counts
+        const filtered = result.dataExpandFilter(result.list);
+        console.log('Filtered rows:', filtered.length);
+        filtered.forEach((row: TableRow) => {
+            console.log('Filtered row cells count:', row.cells.length);
+            expect(row.cells.length).toBe(columnsCount);
+        });
+    });
+
+    it('should handle Pivot Table with showLine and subtotal rows', () => {
+        const data = [
+            { province: 'Zhejiang', amount: 100 },
+            { province: 'Zhejiang', amount: 200 },
+            { province: 'Jiangsu', amount: 150 },
+        ];
+        const fields = {
+            rows: [{ field: 'province', title: 'Province', total: { enabled: true } }],
+            columns: [],
+            values: [{ field: 'amount', title: 'Amount', calculateType: 'sum' as const }]
+        };
+        const config = { showLine: true };
+
+        const result = dataHandler({ data, fields, meta: [], sortParams: [], config });
+
+        const columnsCount = result.tableColumns?.length || 0;
+        console.log('Pivot Table - Columns count:', columnsCount);
+        console.log('Columns:', result.tableColumns?.map((c: any) => ({ field: c.field, title: c.title })));
+        console.log('Total rows:', result.list.length);
+
+        // Check each row has matching cells count
+        result.list.forEach((row, rowIndex) => {
+            console.log(`Pivot Row ${rowIndex} cells:`, row.cells.length, 'content:', row.cells.map((c: any) => c.content));
+            expect(row.cells.length).toBe(columnsCount);
+        });
+
+        // Check filtered result also has matching counts
+        const filtered = result.dataExpandFilter(result.list);
+        console.log('Filtered rows:', filtered.length);
+        filtered.forEach((row: TableRow, rowIndex: number) => {
+            console.log(`Filtered Row ${rowIndex} cells:`, row.cells.length, 'content:', row.cells.map((c: any) => c.content));
+            expect(row.cells.length).toBe(columnsCount);
+        });
     });
 });

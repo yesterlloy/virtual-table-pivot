@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import pivotDataHandler from './pivotHandler';
-import { PivotParams, MetricNode } from '@/types';
+import { PivotParams, MetricNode, DimensionNode } from '@/types';
 import { EMPTY_VALUE } from './vars';
 
 const mockData = [
@@ -531,5 +531,171 @@ describe('pivotDataHandler - row index feature', () => {
             // The index cell (cells[0]) should be EMPTY_VALUE for subtotal rows
             expect(subtotalRow.cells[0].content).toBe(EMPTY_VALUE);
         }
+    });
+
+    it('should handle all dimensions collapsed with emptyReplace - simulating data.json scenario', () => {
+        // Simulate data.json structure with 6 row dimensions, all collapsed: true
+        // Many rows have empty values in name2-5 fields
+        const testData = [
+            { code1: '03060301', name1: '事项分类', name2: '城乡建设', name3: '城市设施管理', name4: '道路设施', name5: '安全岛', value: 10 },
+            { code1: '03060301', name1: '事项分类', name2: '城乡建设', name3: '城市设施管理', name4: '道路设施', name5: '', value: 20 },
+            { code1: '03060301', name1: '事项分类', name2: '城乡建设', name3: '城市设施管理', name4: '路灯设施', name5: '', value: 30 },
+            { code1: '03060302', name1: '事项分类', name2: '环境保护', name3: '', name4: '', name5: '', value: 40 },
+        ];
+
+        const params: PivotParams = {
+            data: testData,
+            meta: [],
+            sortParams: [],
+            fields: {
+                rows: [
+                    { field: 'code1', title: 'Code', collapsed: true, emptyReplace: '-' },
+                    { field: 'name1', title: 'Level 1', collapsed: true, emptyReplace: '-' },
+                    { field: 'name2', title: 'Level 2', collapsed: true, emptyReplace: '-' },
+                    { field: 'name3', title: 'Level 3', collapsed: true, emptyReplace: '-' },
+                    { field: 'name4', title: 'Level 4', collapsed: true, emptyReplace: '-' },
+                    { field: 'name5', title: 'Level 5', collapsed: true, emptyReplace: '-' }
+                ] as DimensionNode[],
+                columns: [],
+                values: [{ field: 'value', calculateType: 'sum' }]
+            },
+            config: { showLine: true }
+        };
+
+        const result = pivotDataHandler(params);
+
+        // Check that dataHandler returns rows
+        expect(result.list).toBeDefined();
+        expect(result.list.length).toBe(4); // 4 unique data rows
+
+        // Check that dataExpandFilter returns visible rows
+        const filtered = result.dataExpandFilter(result.list);
+
+        // With all dimensions collapsed:
+        // - code1='03060301' has 3 rows with different name5/name4 values, should show first one
+        // - code1='03060302' has 1 row, should show it
+        // Since code1 values are different (03060301 vs 03060302), they are independent groups
+        // Expected: 2 visible rows (first child of each code1 group)
+        expect(filtered.length).toBe(2);
+
+        // Verify the visible row keys
+        const visibleRowKeys = filtered.map(row => row.rowKey);
+
+        // First row: first child of code1='03060301' group
+        expect(visibleRowKeys[0]).toContain('03060301');
+        // Second row: first (and only) child of code1='03060302' group
+        expect(visibleRowKeys[1]).toContain('03060302');
+    });
+
+    it('should show first child of each top-level parent when all dimensions collapsed - data.json scenario', () => {
+        // Simulate data.json where name1 is always "事项分类" but code1 varies
+        // Each unique code1 should show its first child
+        const testData = [
+            { code1: '01', name1: '事项分类', name2: '科教文体', name3: '教育管理', name4: '招生考试', name5: '初中教育', value: 10 },
+            { code1: '01', name1: '事项分类', name2: '科教文体', name3: '教育管理', name4: '招生考试', name5: '高中教育', value: 20 },
+            { code1: '0101', name1: '事项分类', name2: '科教文体', name3: '教育管理', name4: '学校管理', name5: '', value: 30 },
+            { code1: '0102', name1: '事项分类', name2: '科教文体', name3: '教育管理', name4: '教育收费', name5: '', value: 40 },
+            { code1: '02', name1: '事项分类', name2: '交通运输', name3: '城市公交', name4: '', name5: '', value: 50 },
+        ];
+
+        const params: PivotParams = {
+            data: testData,
+            meta: [],
+            sortParams: [],
+            fields: {
+                rows: [
+                    { field: 'code1', title: 'Code', collapsed: true },
+                    { field: 'name1', title: 'Level 1', collapsed: true },
+                    { field: 'name2', title: 'Level 2', collapsed: true },
+                    { field: 'name3', title: 'Level 3', collapsed: true },
+                    { field: 'name4', title: 'Level 4', collapsed: true },
+                    { field: 'name5', title: 'Level 5', collapsed: true }
+                ] as DimensionNode[],
+                columns: [],
+                values: [{ field: 'value', calculateType: 'sum' }]
+            }
+        };
+
+        const result = pivotDataHandler(params);
+        const filtered = result.dataExpandFilter(result.list);
+
+        // Expected visible rows (first child of each unique code1):
+        // - code1='01': first child is name5='初中教育'
+        // - code1='0101': first child is name5=''
+        // - code1='0102': first child is name5=''
+        // - code1='02': first child is name5=''
+        expect(filtered.length).toBe(4);
+
+        const visibleRowKeys = filtered.map(row => row.rowKey);
+        expect(visibleRowKeys[0]).toContain('|01|');
+        expect(visibleRowKeys[1]).toContain('|0101|');
+        expect(visibleRowKeys[2]).toContain('|0102|');
+        expect(visibleRowKeys[3]).toContain('|02|');
+    });
+
+    it('should handle data.json scenario where each code1 has only one row with empty name2-5', () => {
+        // Simulate data.json where each code1 has only one row
+        // and name2-5 are mostly empty
+        const testData = [
+            { code1: '-1', name1: '全市整体', name2: '', name3: '', name4: '', name5: '', value: 10 },
+            { code1: '-2', name1: '合计', name2: '', name3: '', name4: '', name5: '', value: 20 },
+            { code1: '0', name1: '事项分类', name2: '', name3: '', name4: '', name5: '', value: 30 },
+            { code1: '01', name1: '科教文体', name2: '', name3: '', name4: '', name5: '', value: 40 },
+            { code1: '0101', name1: '教育管理', name2: '', name3: '', name4: '', name5: '', value: 50 },
+        ];
+
+        const params: PivotParams = {
+            data: testData,
+            meta: [],
+            sortParams: [],
+            fields: {
+                rows: [
+                    { field: 'code1', title: 'Code', collapsed: true, emptyReplace: '-' },
+                    { field: 'name1', title: 'Level 1', collapsed: true, emptyReplace: '-' },
+                    { field: 'name2', title: 'Level 2', collapsed: true, emptyReplace: '-' },
+                    { field: 'name3', title: 'Level 3', collapsed: true, emptyReplace: '-' },
+                    { field: 'name4', title: 'Level 4', collapsed: true, emptyReplace: '-' },
+                    { field: 'name5', title: 'Level 5', collapsed: true, emptyReplace: '-' }
+                ] as DimensionNode[],
+                columns: [],
+                values: [{ field: 'value', calculateType: 'sum' }]
+            }
+        };
+
+        const result = pivotDataHandler(params);
+
+        // Each row has unique code1, so each should be visible when collapsed
+        // because each code1 group has only one row (which is the first child)
+        expect(result.list.length).toBe(5);
+
+        const filtered = result.dataExpandFilter(result.list);
+        console.log('data.json scenario - visible rows:', filtered.length);
+        filtered.forEach((row, idx) => {
+            console.log(`  Visible ${idx}: rowKey="${row.rowKey}"`);
+        });
+
+        // All 5 rows should be visible because each code1 is unique
+        // and each has only one row (which is its own first child)
+        expect(filtered.length).toBe(5);
+    });
+
+    it('should handle actual data.json file', () => {
+        // Import actual data.json
+        const dataJson = require('../../src/test/data.json');
+
+        const params: PivotParams = {
+            data: dataJson.data.slice(0, 100), // Use first 100 records
+            meta: dataJson.meta,
+            sortParams: dataJson.sortParams,
+            fields: dataJson.fields,
+            config: { showLine: true }
+        };
+
+        const result = pivotDataHandler(params);
+        const filtered = result.dataExpandFilter(result.list);
+
+        // Should show first child of each unique code1 group
+        // With 100 records and ~50 unique code1 values, should show ~50 rows
+        expect(filtered.length).toBeGreaterThan(10); // At least 10 visible rows
     });
 });

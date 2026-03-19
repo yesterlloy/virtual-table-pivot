@@ -29,6 +29,7 @@ export interface DimensionNode extends BaseNode {
      * @description 优先级 `collapseFields` > `expandDepth` > `collapseAll` > `collapsed`
      */
     collapsed?: boolean;
+    emptyReplace?: string;
     total?: {
         enabled: boolean;
         label?: string;

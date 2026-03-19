@@ -133,9 +133,25 @@ const Cell: React.FC<CellProps> = ({
     columns, 
     handleExpand, 
     meta, 
-    mergedCellsMap, 
+    mergedCellsMap,
 }) => {
+    // Safety check: Ensure mergedData has data at this rowIndex
+    if (!mergedData[rowIndex]) {
+        return null;
+    }
+
     let cell = mergedData[rowIndex][columnIndex];
+
+    // Safety check: If cell doesn't exist, return null
+    if (!cell) {
+        return null;
+    }
+
+    // Safety check: Ensure columns has config for this columnIndex
+    if (!columns[columnIndex]) {
+        return null;
+    }
+
     let isVirtualStart = false;
 
     // Check if this cell is part of a merge but hidden (rowspan=0)

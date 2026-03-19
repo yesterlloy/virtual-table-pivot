@@ -33,7 +33,7 @@ const getFieldValue = (record: any, fieldPath: string) => {
         value = value[field];
     }
 
-    if (value === null || value === undefined) {
+    if (value === null || value === undefined || value === '') {
         value = EMPTY_VALUE;
     };
 
@@ -129,7 +129,6 @@ const pivotDataHandler = (params: PivotParams) => {
             dataExpandFilter: (list: any[]) => list
         };
     }
-    console.group('透视表数据处理');
 
     // 获取所有叶子节点
     const rowLeafNodes = getAllLeafNodes(rows) as DimensionNode[];
@@ -543,7 +542,9 @@ const pivotDataHandler = (params: PivotParams) => {
                         totalState.set(currentSubtotalRowKey, 1);
 
                         if (position === 'top' && level > 0) {
-                            firstChildMap.set(groupKey, currentSubtotalRowKey);
+                            // Normalize groupKey to match the format used in isRowVisible (with leading '|')
+                            const normalizedGroupKey = '|' + groupKey;
+                            firstChildMap.set(normalizedGroupKey, currentSubtotalRowKey);
                         }
                     }
                 }
@@ -552,8 +553,6 @@ const pivotDataHandler = (params: PivotParams) => {
 
         return resultRows;
     };
-
-    const leafNodes = getAllLeafNodes(rows);
 
     // 2. 初始化展开状态映射
     expandState.clear();
@@ -624,25 +623,6 @@ const pivotDataHandler = (params: PivotParams) => {
             // 生成当前级别的行键
             currentRowKey += `|${value}`;
 
-            let firstChildKey = _rowKey; // rowKey is shadowing variable
-            // Wait, I need rowKey from forEach loop, which is _rowKey.
-            // I should rename _rowKey to rowKey and remove unused variable warning by using it or prefixing if strictly unused.
-            // But it IS used here: `let firstChildKey = rowKey;` (original code).
-            // Ah, I renamed it to `_rowKey`. So I should use `_rowKey`.
-            
-            const rowNode = leafNodes.find(node => node.field === field) as DimensionNode;
-            if (rowNode?.total?.enabled && rowNode.total.label) {
-                firstChildKey = `${currentRowKey}|${rowNode.total.label}`;
-            }
-
-            // 记录每个级别的第一条子项
-            if (hasNextLevel) {
-                const parentKey = currentRowKey;
-                if (!firstChildMap.has(parentKey)) {
-                    firstChildMap.set(parentKey, firstChildKey);
-                }
-            }
-
             // 检查当前级别的展开状态
             const isExpanded = expandState.has(level) ? expandState.get(level)!.get(currentRowKey) || true : true;
 
@@ -666,6 +646,24 @@ const pivotDataHandler = (params: PivotParams) => {
                 rowKey: currentRowKey,
                 onClick: (hasNextLevel && hasMultipleRecords) ? (record) => toggleExpand(record.level, record.rowKey) : undefined
             });
+        });
+
+        // 在 forEach 循环结束后，currentRowKey 是完整的行键
+        const completeRowKey = currentRowKey;
+
+        // 设置 firstChildMap（使用完整的行键）
+        // 使用与上面相同的 currentRowKey 构建逻辑，确保键格式一致
+        let parentKey = '';
+        rowFields.forEach((field, idx) => {
+            const value = getFieldValue(rowData, field);
+            const level = idx + 1;
+            const hasNextLevel = level < rowFields.length;
+
+            parentKey += `|${value}`;
+
+            if (hasNextLevel && !firstChildMap.has(parentKey)) {
+                firstChildMap.set(parentKey, completeRowKey);
+            }
         });
 
         // 添加值数据
@@ -727,7 +725,7 @@ const pivotDataHandler = (params: PivotParams) => {
             });
         }
 
-        dataRows.push({ cells: rowCells, rowKey: currentRowKey });
+        dataRows.push({ cells: rowCells, rowKey: completeRowKey });
     });
 
     // 检查行是否可见
@@ -735,24 +733,31 @@ const pivotDataHandler = (params: PivotParams) => {
         const rowKeyParts = rowKey.split('|').filter(Boolean);
         const currentRowLevel = rowKeyParts.length;
 
+        // 标准化 rowKey：移除尾部所有 '|' 以确保比较一致
+        const normalizedRowKey = rowKey.replace(/\|+$/, '');
+
         for (let level = 1; level < currentRowLevel; level++) {
             if (expandState.has(level)) {
                 const levelState = expandState.get(level)!;
+                // 使用原始分割（不过滤空字符串）来匹配 firstChildMap 的键格式
                 const checkKey = rowKey.split('|').slice(0, level + 1).join('|');
 
                 if (levelState.has(checkKey)) {
-                    if (!levelState.get(checkKey)) {
+                    const isExpanded = levelState.get(checkKey)!;
+
+                    if (!isExpanded) {
                         const parentKey = checkKey;
                         const firstChildKey = firstChildMap.get(parentKey);
+                        // 标准化 firstChildKey：移除尾部所有 '|' 以确保比较一致
+                        const normalizedFirstChildKey = firstChildKey?.replace(/\|+$/, '');
 
-                        if (rowKey !== firstChildKey) {
+                        if (normalizedRowKey !== normalizedFirstChildKey) {
                             return false;
                         }
                     }
                 }
             }
         }
-
         return true;
     };
 
@@ -761,8 +766,13 @@ const pivotDataHandler = (params: PivotParams) => {
         if (!dataRows || dataRows.length === 0) {
             return dataRows;
         }
+        // Calculate column offset: if showLine is enabled, index column is at position 0,
+        // so dimension columns start from position 1
+        const indexOffset = config?.showLine ? 1 : 0;
+
         for (let colIndex = 0; colIndex < rowLeafNodes.length; colIndex++) {
-            let currentContent = dataRows[0][colIndex].content;
+            const actualColIndex = colIndex + indexOffset;
+            let currentContent = dataRows[0][actualColIndex].content;
             let startRowIndex = 0;
 
             let rowNode = rowLeafNodes[colIndex];
@@ -770,14 +780,14 @@ const pivotDataHandler = (params: PivotParams) => {
             let totalLabel = rowNode.total?.label || '';
 
             for (let rowIndex = 1; rowIndex < dataRows.length; rowIndex++) {
-                const cell = dataRows[rowIndex][colIndex];
+                const cell = dataRows[rowIndex][actualColIndex];
 
                 // 检查所有前序行维度是否相同（如果存在前序维度）
                 let allPrevDimensionsSame = true;
                 if (colIndex > 0) {
                     for (let prevIndex = 0; prevIndex < colIndex; prevIndex++) {
-                        const prevCellCurrent = dataRows[startRowIndex][prevIndex];
-                        const prevCellRow = dataRows[rowIndex][prevIndex];
+                        const prevCellCurrent = dataRows[startRowIndex][prevIndex + indexOffset];
+                        const prevCellRow = dataRows[rowIndex][prevIndex + indexOffset];
                         // 比较前序维度的内容是否相同
                         if (prevCellCurrent.content !== prevCellRow.content) {
                             allPrevDimensionsSame = false;
@@ -793,7 +803,7 @@ const pivotDataHandler = (params: PivotParams) => {
                     allPrevDimensionsSame
                 ) {
                     cell.rowspan = 0;
-                    dataRows[startRowIndex][colIndex].rowspan++;
+                    dataRows[startRowIndex][actualColIndex].rowspan++;
                 } else {
                     currentContent = cell.content;
                     startRowIndex = rowIndex;
@@ -805,8 +815,6 @@ const pivotDataHandler = (params: PivotParams) => {
     
     // 过滤可见行
     const dataExpandFilter = (list: TableRow[]): TableRow[] => {
-        console.group('透视表数据处理 - 过滤可见行');
-        
         // Filter rows and extract cells
         const visibleRows = list.filter(row => isRowVisible(row.rowKey));
         
@@ -836,10 +844,19 @@ const pivotDataHandler = (params: PivotParams) => {
                 const firstDimCell = visibleCells[i][1];  // First dimension is at position 1
 
                 if (firstDimCell.rowspan > 0) {
-                    indexCell.rowspan = firstDimCell.rowspan;
-                    indexCell.content = rowIndex++;
+                    // Check if this is a subtotal row (dimension cell content is TOTAL_DEFAULT_VALUE)
+                    if (firstDimCell.content === TOTAL_DEFAULT_VALUE) {
+                        // Subtotal rows should have empty index
+                        indexCell.rowspan = firstDimCell.rowspan;
+                        indexCell.content = EMPTY_VALUE;
+                    } else {
+                        indexCell.rowspan = firstDimCell.rowspan;
+                        indexCell.content = rowIndex++;
+                    }
                 } else {
                     indexCell.rowspan = 0;
+                    // For covered rows, set content to EMPTY_VALUE to avoid showing wrong index
+                    indexCell.content = EMPTY_VALUE;
                 }
             }
         }
@@ -850,7 +867,6 @@ const pivotDataHandler = (params: PivotParams) => {
             cells: visibleCells[index]
         }));
 
-        console.groupEnd();
         return resultList;
     }
 
@@ -859,39 +875,51 @@ const pivotDataHandler = (params: PivotParams) => {
     const dataRowsWithSubtotals = dataRows.map(row => row.cells);
     const dataRowsWithSubtotalsAndRowKeys = generateSubtotalRows(dataRowsWithSubtotals).map((cells, _index) => {
         let rowKey = '';
+        const indexOffset = config?.showLine ? 1 : 0;
         cells.forEach((cell, cellIndex) => {
-            if (cellIndex < rowFields.length && cell.rowKey) {
+            const dimensionIndex = cellIndex - indexOffset;
+            if (dimensionIndex >= 0 && dimensionIndex < rowFields.length && cell.rowKey) {
                 rowKey = cell.rowKey;
             }
         });
         return { cells, rowKey };
     });
 
+    // 5. 将数据行添加到结果中
+    // result.push(...dataRowsWithSubtotalsAndRowKeys);
+
+    // Clean up result construction
+    const result = dataRowsWithSubtotalsAndRowKeys;
+
     // Update index rowspan for all rows (including subtotals) in initial result
+    // MUST be done AFTER result is assigned, because we need to update result[row].cells
     if (config?.showLine && rowLeafNodes.length > 0) {
         // First apply rowSpanHandler to set up rowspan for dimension cells
-        rowSpanHandler(dataRowsWithSubtotals);
+        rowSpanHandler(result.map(row => row.cells));
 
         // Then update index cells
         let rowIndex = 1;
-        for (let i = 0; i < dataRowsWithSubtotals.length; i++) {
-            const indexCell = dataRowsWithSubtotals[i][0];
-            const firstDimCell = dataRowsWithSubtotals[i][1];  // First dimension is at position 1
+        for (let i = 0; i < result.length; i++) {
+            const indexCell = result[i].cells[0];
+            const firstDimCell = result[i].cells[1];  // First dimension is at position 1
 
             if (firstDimCell.rowspan > 0) {
-                indexCell.rowspan = firstDimCell.rowspan;
-                indexCell.content = rowIndex++;
+                // Check if this is a subtotal row (dimension cell content is TOTAL_DEFAULT_VALUE)
+                if (firstDimCell.content === TOTAL_DEFAULT_VALUE) {
+                    // Subtotal rows should have empty index
+                    indexCell.rowspan = firstDimCell.rowspan;
+                    indexCell.content = EMPTY_VALUE;
+                } else {
+                    indexCell.rowspan = firstDimCell.rowspan;
+                    indexCell.content = rowIndex++;
+                }
             } else {
                 indexCell.rowspan = 0;
+                // For covered rows, set content to EMPTY_VALUE to avoid showing wrong index
+                indexCell.content = EMPTY_VALUE;
             }
         }
     }
-
-    // 5. 将数据行添加到结果中
-    // result.push(...dataRowsWithSubtotalsAndRowKeys);
-    
-    // Clean up result construction
-    const result = dataRowsWithSubtotalsAndRowKeys;
 
     // Generate Columns Configuration for TableHeader
     const generateColumns = () => {
@@ -987,8 +1015,6 @@ const pivotDataHandler = (params: PivotParams) => {
     };
 
     const tableColumns = generateColumns();
-
-    console.groupEnd();
 
     return {
         list: result,

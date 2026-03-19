@@ -25,10 +25,10 @@ export default defineConfig({
       }
     }
   },
-  esbuild: {
-    drop: ['console', 'debugger'],
-  },
   build: {
+    esbuild: {
+      drop: ['console', 'debugger'],
+    },
     lib: {
       entry: path.resolve(__dirname, 'src/index.ts'),
       name: 'VirtualTable',
