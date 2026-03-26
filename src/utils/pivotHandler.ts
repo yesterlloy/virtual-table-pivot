@@ -53,14 +53,14 @@ const evaluateExpression = (expression: string, context: Record<string, number>)
     try {
         // 替换变量 {field} -> value
         // 使用正则替换，同时检查上下文是否存在该值
-        const processedExpr = expression.replace(/\{(\w+)\}/g, (_match, field) => {
+        const processedExpr = expression.replace(/\{([^}]+)\}/g, (_match, field) => {
             const value = context[field];
             // 如果引用值不存在或非数字，视为0 (或者根据策略处理)
             return (value !== undefined && value !== null && !isNaN(value)) ? String(value) : '0';
         });
 
-        // 安全性检查：仅允许数字、运算符、括号、小数点
-        if (!/^[\d\.\+\-\*\/\(\)\s]+$/.test(processedExpr)) {
+        // 安全性检查：仅允许数字、运算符、括号、小数点、字母、下划线、美元符号
+        if (!/^[\d\.\+\-\*\/\(\)\s\w$]+$/.test(processedExpr)) {
             console.warn('Invalid characters in expression:', expression);
             return null;
         }
@@ -772,6 +772,14 @@ const pivotDataHandler = (params: PivotParams) => {
 
         for (let colIndex = 0; colIndex < rowLeafNodes.length; colIndex++) {
             const actualColIndex = colIndex + indexOffset;
+
+            // 重置所有单元格的 rowspan 为 1，避免重复累加
+            dataRows.forEach(row => {
+                if (row[actualColIndex]) {
+                    row[actualColIndex].rowspan = 1;
+                }
+            });
+
             let currentContent = dataRows[0][actualColIndex].content;
             let startRowIndex = 0;
 
